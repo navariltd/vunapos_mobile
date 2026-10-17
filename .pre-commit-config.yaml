@@ -1,0 +1,17 @@
+default_install_hook_types: [pre-commit]
+
+repos:
+  - repo: local
+    hooks:
+      - id: lint
+        name: Expo lint
+        entry: npm run lint
+        language: system
+        pass_filenames: false
+        types_or: [javascript, ts, tsx]
+      - id: typecheck
+        name: TypeScript typecheck
+        entry: npm run typecheck
+        language: system
+        pass_filenames: false
+        types_or: [ts, tsx]

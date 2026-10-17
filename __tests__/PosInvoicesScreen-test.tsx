@@ -282,7 +282,39 @@ describe("PosInvoicesScreen", () => {
     ).toEqual({
       selected: true,
     });
-    expect(screen.getByText("Orders")).toBeTruthy();
+    expect(screen.getByLabelText("View sales summary")).toBeTruthy();
+  });
+
+  it("shows each posted-history summary in a dismissible modal", async () => {
+    const screen = await renderScreen();
+
+    fireEvent.press(screen.getByLabelText("View sales summary"));
+
+    expect(await screen.findByText("Invoices summary")).toBeTruthy();
+    expect(screen.getByText("Gross sales")).toBeTruthy();
+    expect(screen.getByText("Credit outstanding")).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText("Close sales summary"));
+
+    await waitFor(() =>
+      expect(screen.queryByText("Invoices summary")).toBeNull(),
+    );
+  });
+
+  it("updates and dismisses the summary modal from Orders history", async () => {
+    const screen = await renderScreen();
+
+    fireEvent.press(screen.getByRole("tab", { name: "Orders history" }));
+    await screen.findByLabelText("View sales summary");
+    fireEvent.press(screen.getByLabelText("View sales summary"));
+
+    expect(await screen.findByText("Orders summary")).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText("Dismiss sales summary"));
+
+    await waitFor(() =>
+      expect(screen.queryByText("Orders summary")).toBeNull(),
+    );
   });
 
   it("loads draft sales orders from the dedicated draft orders tab", async () => {

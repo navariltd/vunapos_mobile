@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FlatList,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -119,6 +120,90 @@ function SummaryCard({ label, value }: SummaryCardProps) {
   );
 }
 
+type HistorySummaryDialogProps = {
+  documentLabel: "Invoices" | "Orders";
+  onDismiss: () => void;
+  summary: {
+    credit_outstanding: number;
+    credit_sales: number;
+    gross_sales: number;
+    invoice_count: number;
+    outstanding: number;
+    returns: number;
+  };
+  visible: boolean;
+  formatCurrency: (amount: number) => string;
+};
+
+function HistorySummaryDialog({
+  documentLabel,
+  formatCurrency,
+  onDismiss,
+  summary,
+  visible,
+}: HistorySummaryDialogProps) {
+  const { palette } = useAppearance();
+  const styles = createStyles(palette);
+
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={onDismiss}
+      transparent
+      visible={visible}
+    >
+      <View accessibilityViewIsModal style={styles.summaryDialogOverlay}>
+        <Pressable
+          accessibilityLabel="Dismiss sales summary"
+          onPress={onDismiss}
+          style={styles.summaryDialogScrim}
+        />
+        <View style={styles.summaryDialog}>
+          <View style={styles.summaryDialogHeader}>
+            <Text style={styles.summaryDialogTitle}>
+              {documentLabel} summary
+            </Text>
+            <Pressable
+              accessibilityLabel="Close sales summary"
+              hitSlop={8}
+              onPress={onDismiss}
+              style={styles.summaryDialogCloseButton}
+            >
+              <Text style={styles.summaryDialogCloseLabel}>×</Text>
+            </Pressable>
+          </View>
+          <View style={styles.summaryGrid}>
+            <SummaryCard
+              label={documentLabel}
+              value={String(summary.invoice_count)}
+            />
+            <SummaryCard
+              label="Gross sales"
+              value={formatCurrency(summary.gross_sales)}
+            />
+            <SummaryCard
+              label="Returns"
+              value={formatCurrency(summary.returns)}
+            />
+            <SummaryCard
+              label="Outstanding"
+              value={formatCurrency(summary.outstanding)}
+            />
+            <SummaryCard
+              label="Credit sales"
+              value={formatCurrency(summary.credit_sales)}
+            />
+            <SummaryCard
+              label="Credit outstanding"
+              value={formatCurrency(summary.credit_outstanding)}
+            />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 type PosInvoicesScreenProps = {
   heldRefreshKey?: number;
   /** Retained for call-site compatibility; Home navigation is used instead. */
@@ -154,6 +239,7 @@ export function PosInvoicesScreen({
   const [filters, setFilters] =
     useState<PosInvoiceHistoryFilters>(initialFilters);
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
+  const [summaryVisible, setSummaryVisible] = useState(false);
   const [draftFilters, setDraftFilters] =
     useState<PosInvoiceHistoryFilters>(initialFilters);
   const [start, setStart] = useState(0);
@@ -279,6 +365,10 @@ export function PosInvoicesScreen({
     filters.toDate,
     filters.currentShift ? "" : "currentShift",
   ].filter(Boolean).length;
+  const summaryDocumentLabel =
+    filters.documentType === "Invoice" ? "Invoices" : "Orders";
+  const canViewSummary =
+    filters.documentType === "Invoice" || filters.documentType === "Order";
 
   const tabs = (
     <ScrollView
@@ -508,11 +598,29 @@ export function PosInvoicesScreen({
             {tabs}
 
             <View style={styles.filterActionRow}>
-              <Text style={styles.filterSummary}>
-                {activeFilterCount
-                  ? `${activeFilterCount} active filter${activeFilterCount === 1 ? "" : "s"}`
-                  : "All invoices in this shift"}
-              </Text>
+              {canViewSummary && history.data ? (
+                <View style={styles.summaryActionRow}>
+                  <Pressable
+                    accessibilityLabel="View sales summary"
+                    onPress={() => setSummaryVisible(true)}
+                    style={styles.summaryLink}
+                  >
+                    <Text style={styles.summaryLinkLabel}>View Summary</Text>
+                  </Pressable>
+                  {activeFilterCount ? (
+                    <Text style={styles.filterSummary}>
+                      {activeFilterCount} active filter
+                      {activeFilterCount === 1 ? "" : "s"}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : (
+                <Text style={styles.filterSummary}>
+                  {activeFilterCount
+                    ? `${activeFilterCount} active filter${activeFilterCount === 1 ? "" : "s"}`
+                    : `All ${summaryDocumentLabel.toLowerCase()} in this shift`}
+                </Text>
+              )}
               <Pressable
                 accessibilityLabel="Open invoice filters"
                 onPress={openFilterSheet}
@@ -537,48 +645,6 @@ export function PosInvoicesScreen({
               </Text>
             ) : null}
 
-            {history.data ? (
-              <View style={styles.summaryGrid}>
-                <SummaryCard
-                  label={
-                    filters.documentType === "Invoice" ? "Invoices" : "Orders"
-                  }
-                  value={String(history.data.summary.invoice_count)}
-                />
-                <SummaryCard
-                  label="Gross sales"
-                  value={formatCurrency(
-                    history.data.summary.gross_sales,
-                    currency,
-                  )}
-                />
-                <SummaryCard
-                  label="Returns"
-                  value={formatCurrency(history.data.summary.returns, currency)}
-                />
-                <SummaryCard
-                  label="Outstanding"
-                  value={formatCurrency(
-                    history.data.summary.outstanding,
-                    currency,
-                  )}
-                />
-                <SummaryCard
-                  label="Credit sales"
-                  value={formatCurrency(
-                    history.data.summary.credit_sales,
-                    currency,
-                  )}
-                />
-                <SummaryCard
-                  label="Credit outstanding"
-                  value={formatCurrency(
-                    history.data.summary.credit_outstanding,
-                    currency,
-                  )}
-                />
-              </View>
-            ) : null}
           </View>
         }
         renderItem={({ item }) => (
@@ -637,6 +703,15 @@ export function PosInvoicesScreen({
         }
         visible={filterSheetVisible}
       />
+      {history.data && canViewSummary ? (
+        <HistorySummaryDialog
+          documentLabel={summaryDocumentLabel}
+          formatCurrency={formatCurrency}
+          onDismiss={() => setSummaryVisible(false)}
+          summary={history.data.summary}
+          visible={summaryVisible}
+        />
+      ) : null}
     </View>
   );
 }
@@ -833,6 +908,60 @@ function createStyles(palette: AppPalette) {
       flexGrow: 1,
       gap: 2,
       padding: spacing.sm,
+    },
+    summaryDialog: {
+      backgroundColor: palette.surface,
+      borderColor: palette.border,
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      gap: spacing.md,
+      marginHorizontal: spacing.lg,
+      padding: spacing.md,
+    },
+    summaryActionRow: {
+      alignItems: "center",
+      flex: 1,
+      flexDirection: "row",
+      gap: spacing.sm,
+    },
+    summaryDialogCloseButton: {
+      alignItems: "center",
+      height: 32,
+      justifyContent: "center",
+      width: 32,
+    },
+    summaryDialogCloseLabel: {
+      color: palette.onSurface,
+      fontFamily: typography.fontFamily.regular,
+      fontSize: 24,
+      lineHeight: 28,
+    },
+    summaryDialogHeader: {
+      alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    summaryDialogOverlay: {
+      alignItems: "center",
+      flex: 1,
+      justifyContent: "center",
+    },
+    summaryDialogScrim: {
+      backgroundColor: "rgba(0, 0, 0, 0.45)",
+      ...StyleSheet.absoluteFill,
+    },
+    summaryDialogTitle: {
+      color: palette.onSurface,
+      fontFamily: typography.fontFamily.semibold,
+      fontSize: typography.size.body,
+    },
+    summaryLink: {
+      paddingVertical: spacing.xs,
+    },
+    summaryLinkLabel: {
+      color: palette.primary,
+      fontFamily: typography.fontFamily.semibold,
+      fontSize: typography.size.small,
     },
     summaryGrid: {
       flexDirection: "row",

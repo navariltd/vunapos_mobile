@@ -20,7 +20,7 @@ import { PosInvoiceHistoryFilters } from "@/features/pos/types";
 import { useAppearance } from "@/theme/AppearanceProvider";
 import { AppPalette, radii, spacing, typography } from "@/theme/tokens";
 
-const statusOptions: {
+const invoiceStatusOptions: {
   label: string;
   value: PosInvoiceHistoryFilters["status"];
 }[] = [
@@ -32,6 +32,21 @@ const statusOptions: {
   { label: "Overdue", value: "Overdue" },
   { label: "Cancelled", value: "Cancelled" },
   { label: "Credit note", value: "Credit Note" },
+];
+
+const orderStatusOptions: {
+  label: string;
+  value: PosInvoiceHistoryFilters["status"];
+}[] = [
+  { label: "All statuses", value: "" },
+  { label: "Draft", value: "Draft" },
+  { label: "To deliver and bill", value: "To Deliver and Bill" },
+  { label: "To deliver", value: "To Deliver" },
+  { label: "To bill", value: "To Bill" },
+  { label: "Completed", value: "Completed" },
+  { label: "On hold", value: "On Hold" },
+  { label: "Closed", value: "Closed" },
+  { label: "Cancelled", value: "Cancelled" },
 ];
 
 const saleTypeOptions: {
@@ -83,6 +98,7 @@ function formatDateLabel(value: string, placeholder: string) {
 }
 
 type PosInvoiceFiltersSheetProps = {
+  documentType?: PosInvoiceHistoryFilters["documentType"];
   filters: PosInvoiceHistoryFilters;
   onApply: () => void;
   onChange: <Key extends keyof PosInvoiceHistoryFilters>(
@@ -245,6 +261,7 @@ function DatePickerField({
 }
 
 export function PosInvoiceFiltersSheet({
+  documentType = "Invoice",
   filters,
   onApply,
   onChange,
@@ -259,6 +276,8 @@ export function PosInvoiceFiltersSheet({
   const [datePickerField, setDatePickerField] =
     useState<DateFilterField | null>(null);
   const [selection, setSelection] = useState<FilterSelection | null>(null);
+  const statusOptions =
+    documentType === "Invoice" ? invoiceStatusOptions : orderStatusOptions;
   const paymentModeOptions: {
     label: string;
     value: PosInvoiceHistoryFilters["paymentMode"];

@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 
 import { useInvoiceReceipt } from '@/features/pos/hooks/useInvoiceReceipt';
@@ -14,7 +14,7 @@ type PosInvoiceReceiptActionsProps = {
 export function PosInvoiceReceiptActions({ invoiceDoctype, invoiceName }: PosInvoiceReceiptActionsProps) {
   const { palette } = useAppearance();
   const styles = createStyles(palette);
-  const { error, isWorking, printReceipt, shareReceipt } = useInvoiceReceipt();
+  const { activeAction, error, isWorking, printReceipt, shareReceipt } = useInvoiceReceipt();
   const request = { invoiceDoctype, invoiceName };
 
   return (
@@ -22,11 +22,19 @@ export function PosInvoiceReceiptActions({ invoiceDoctype, invoiceName }: PosInv
       <View style={styles.actions}>
         <Pressable accessibilityLabel="Print receipt" disabled={isWorking} onPress={() => void printReceipt(request)} style={[styles.action, isWorking && styles.actionDisabled]}>
           <MaterialCommunityIcons color={palette.onSurface} name="printer-outline" size={18} />
-          <Text style={styles.actionLabel}>{isWorking ? 'Preparing receipt…' : 'Print receipt'}</Text>
+          {activeAction === 'print' ? (
+            <ActivityIndicator color={palette.onSurface} size="small" testID="receipt-print-loading" />
+          ) : (
+            <Text style={styles.actionLabel}>Print receipt</Text>
+          )}
         </Pressable>
         <Pressable accessibilityLabel="Share receipt" disabled={isWorking} onPress={() => void shareReceipt(request)} style={[styles.action, isWorking && styles.actionDisabled]}>
           <MaterialCommunityIcons color={palette.onSurface} name="share-variant-outline" size={18} />
-          <Text style={styles.actionLabel}>Share</Text>
+          {activeAction === 'share' ? (
+            <ActivityIndicator color={palette.onSurface} size="small" testID="receipt-share-loading" />
+          ) : (
+            <Text style={styles.actionLabel}>Share</Text>
+          )}
         </Pressable>
       </View>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}

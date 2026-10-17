@@ -173,12 +173,21 @@ export type PosHeldInvoice = {
 };
 
 export type PosInvoiceStatus =
+  | "Awaiting Payment"
   | "Cancelled"
+  | "Closed"
+  | "Completed"
   | "Credit Note"
   | "Draft"
+  | "On Hold"
   | "Overdue"
   | "Paid"
   | "Partly Paid"
+  | "Pending"
+  | "Submitted"
+  | "To Bill"
+  | "To Deliver"
+  | "To Deliver and Bill"
   | "Unpaid";
 
 export type PosInvoiceListRow = {
@@ -198,6 +207,7 @@ export type PosInvoiceListRow = {
   postedAt: string;
   status: PosInvoiceStatus;
   total: number;
+  workflowEnabled?: boolean;
   workflowState?: string | null;
 };
 
@@ -458,6 +468,7 @@ export type PosInvoiceHistoryRow = {
   vunapos_credit_sale?: boolean;
   vunapos_opening_entry?: string;
   vunapos_session_cashier?: string;
+  workflow_enabled?: boolean;
   workflow_state?: string | null;
 };
 
@@ -494,6 +505,7 @@ export type PosInvoiceDetail = {
     rounded_total?: number;
   };
   warehouse?: string;
+  workflow_enabled?: boolean;
   workflow_state?: string | null;
   can_edit?: boolean;
 };

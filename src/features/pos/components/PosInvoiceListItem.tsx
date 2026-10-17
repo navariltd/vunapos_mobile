@@ -2,11 +2,13 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 
 import { formatPosCurrency } from "@/features/pos/currency";
-import { PosInvoiceListRow, PosInvoiceStatus } from "@/features/pos/types";
+import { getPosStatusPresentation, PosStatusTone } from "@/features/pos/status";
+import { PosInvoiceListRow } from "@/features/pos/types";
 import { useAppearance } from "@/theme/AppearanceProvider";
 import { AppPalette, radii, spacing, typography } from "@/theme/tokens";
 
 type PosInvoiceListItemProps = {
+  compactDraftOrder?: boolean;
   currencyPrecision?: number;
   invoice: PosInvoiceListRow;
   onPress: () => void;
@@ -14,24 +16,19 @@ type PosInvoiceListItemProps = {
 
 function createStatusStyles(
   palette: AppPalette,
-): Record<PosInvoiceStatus, { backgroundColor: string; color: string }> {
+): Record<PosStatusTone, { backgroundColor: string; color: string }> {
   return {
-    "Credit Note": {
+    neutral: {
       backgroundColor: palette.surfaceContainerHigh,
       color: palette.onSurface,
     },
-    Draft: {
-      backgroundColor: palette.surfaceContainerHigh,
-      color: palette.onSurface,
+    workflow: { backgroundColor: palette.primary, color: palette.onPrimary },
+    error: { backgroundColor: palette.errorSurface, color: palette.error },
+    success: { backgroundColor: palette.surfaceContainer, color: palette.success },
+    warning: {
+      backgroundColor: palette.warningSurface,
+      color: palette.warning,
     },
-    Cancelled: { backgroundColor: palette.errorSurface, color: palette.error },
-    Overdue: { backgroundColor: palette.errorSurface, color: palette.error },
-    Paid: { backgroundColor: palette.surfaceContainer, color: palette.success },
-    "Partly Paid": {
-      backgroundColor: palette.surfaceContainerHigh,
-      color: palette.onSurface,
-    },
-    Unpaid: { backgroundColor: palette.errorSurface, color: palette.error },
   };
 }
 
@@ -55,15 +52,52 @@ function formatDueDate(value?: string) {
 }
 
 export function PosInvoiceListItem({
+  compactDraftOrder = false,
   currencyPrecision = 2,
   invoice,
   onPress,
 }: PosInvoiceListItemProps) {
   const { palette } = useAppearance();
   const styles = createStyles(palette);
-  const statusStyle = createStatusStyles(palette)[invoice.status];
+  const status = getPosStatusPresentation({
+    status: invoice.status,
+    workflowEnabled: invoice.workflowEnabled,
+    workflowState: invoice.workflowState,
+  });
+  const statusStyle = createStatusStyles(palette)[status.tone];
+  const isSalesOrder = invoice.doctype === "Sales Order";
   const formatCurrency = (amount: number, currency = invoice.currency) =>
     formatPosCurrency(amount, currency, currencyPrecision);
+
+  if (compactDraftOrder) {
+    return (
+      <Pressable
+        accessibilityLabel={`Open ${invoice.invoiceNumber}`}
+        onPress={onPress}
+        style={[styles.card, styles.compactDraftOrderCard]}
+      >
+        <Text style={styles.compactOrderNumber}>{invoice.invoiceNumber}</Text>
+
+        <Text numberOfLines={1} style={styles.customer}>
+          {invoice.customerName}
+        </Text>
+
+        <View style={styles.compactStatusRow}>
+          <Text style={styles.compactStatusLabel}>Status:</Text>
+          <Text style={styles.compactStatusValue}>{status.label}</Text>
+        </View>
+
+        <Text style={styles.metadata}>{invoice.postedAt}</Text>
+
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Total</Text>
+          <Text style={styles.total}>
+            {formatCurrency(invoice.total, invoice.currency)}
+          </Text>
+        </View>
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable
@@ -86,13 +120,6 @@ export function PosInvoiceListItem({
           ) : null}
         </View>
         <View style={styles.badges}>
-          {invoice.doctype === "Sales Order" && invoice.workflowState ? (
-            <View style={styles.workflowBadge}>
-              <Text numberOfLines={1} style={styles.workflowLabel}>
-                {invoice.workflowState}
-              </Text>
-            </View>
-          ) : null}
           {invoice.creditSale ? (
             <View style={styles.creditSaleBadge}>
               <Text style={styles.creditSaleLabel}>Credit sale</Text>
@@ -100,7 +127,7 @@ export function PosInvoiceListItem({
           ) : null}
           <View style={[styles.status, statusStyle]}>
             <Text style={[styles.statusLabel, { color: statusStyle.color }]}>
-              {invoice.status}
+              {status.label}
             </Text>
           </View>
         </View>
@@ -156,7 +183,7 @@ export function PosInvoiceListItem({
       <View style={styles.totalRow}>
         <View>
           <Text style={styles.totalLabel}>Total</Text>
-          {invoice.outstandingAmount > 0 ? (
+          {!isSalesOrder && invoice.outstandingAmount > 0 ? (
             <Text style={styles.outstanding}>
               Outstanding{" "}
               {formatCurrency(invoice.outstandingAmount, invoice.currency)}
@@ -180,6 +207,29 @@ function createStyles(palette: AppPalette) {
       borderWidth: 1,
       gap: spacing.sm,
       padding: spacing.md,
+    },
+    compactDraftOrderCard: {
+      gap: spacing.xs,
+    },
+    compactOrderNumber: {
+      color: palette.onSurface,
+      fontFamily: typography.fontFamily.semibold,
+      fontSize: typography.size.body,
+    },
+    compactStatusLabel: {
+      color: palette.onSurfaceMuted,
+      fontFamily: typography.fontFamily.medium,
+      fontSize: typography.size.tiny,
+    },
+    compactStatusRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: spacing.xs,
+    },
+    compactStatusValue: {
+      color: palette.onSurface,
+      fontFamily: typography.fontFamily.semibold,
+      fontSize: typography.size.small,
     },
     auditRow: {
       flexDirection: "row",
@@ -215,20 +265,6 @@ function createStyles(palette: AppPalette) {
     creditSaleLabel: {
       color: palette.onSurface,
       fontFamily: typography.fontFamily.semibold,
-      fontSize: typography.size.tiny,
-    },
-    workflowBadge: {
-      backgroundColor: palette.surfaceContainerHigh,
-      borderColor: palette.border,
-      borderRadius: radii.pill,
-      borderWidth: 1,
-      maxWidth: 180,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 4,
-    },
-    workflowLabel: {
-      color: palette.onSurface,
-      fontFamily: typography.fontFamily.medium,
       fontSize: typography.size.tiny,
     },
     dueDate: {

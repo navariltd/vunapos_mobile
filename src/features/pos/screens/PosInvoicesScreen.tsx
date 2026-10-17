@@ -70,6 +70,7 @@ function toListRow(row: PosInvoiceHistoryRow): PosInvoiceListRow {
     postedAt: formatPostedAt(row),
     status: row.status,
     total: row.rounded_total || row.grand_total,
+    workflowEnabled: Boolean(row.workflow_enabled),
     workflowState: row.workflow_state,
   };
 }
@@ -185,18 +186,22 @@ function HistorySummaryDialog({
               label="Returns"
               value={formatCurrency(summary.returns)}
             />
-            <SummaryCard
-              label="Outstanding"
-              value={formatCurrency(summary.outstanding)}
-            />
+            {documentLabel === "Invoices" ? (
+              <SummaryCard
+                label="Outstanding"
+                value={formatCurrency(summary.outstanding)}
+              />
+            ) : null}
             <SummaryCard
               label="Credit sales"
               value={formatCurrency(summary.credit_sales)}
             />
-            <SummaryCard
-              label="Credit outstanding"
-              value={formatCurrency(summary.credit_outstanding)}
-            />
+            {documentLabel === "Invoices" ? (
+              <SummaryCard
+                label="Credit outstanding"
+                value={formatCurrency(summary.credit_outstanding)}
+              />
+            ) : null}
           </View>
         </View>
       </View>
@@ -302,7 +307,11 @@ export function PosInvoicesScreen({
     value: PosInvoiceHistoryFilters[Key],
   ) {
     setFilters((current) => {
-      const next = { ...current, [field]: value } as PosInvoiceHistoryFilters;
+      const next = {
+        ...current,
+        [field]: value,
+        ...(field === "documentType" ? { status: "" } : {}),
+      } as PosInvoiceHistoryFilters;
       return {
         ...next,
         documentType: allowedDocumentType(next.documentType),
@@ -501,9 +510,9 @@ export function PosInvoicesScreen({
         ListHeaderComponent={
           <View style={styles.header}>
             <View style={styles.heading}>
-              <View style={styles.titleRow}>
-                <Text style={styles.title}>Invoices</Text>
-              </View>
+              <Text accessibilityRole="header" style={styles.title}>
+                Sales history
+              </Text>
               <Text style={styles.subtitle}>
                 Review draft invoices and continue editing or checkout.
               </Text>
@@ -540,16 +549,17 @@ export function PosInvoicesScreen({
           </View>
         }
         renderItem={({ item }) => (
-          <View style={styles.heldInvoiceCard}>
+          <Pressable
+            accessibilityLabel={`Open ${item.name}`}
+            onPress={() =>
+              onOpenInvoice({ doctype: item.doctype, name: item.name })
+            }
+            style={styles.heldInvoiceCard}
+          >
             <View style={styles.heldInvoiceMain}>
-              <Pressable
-                accessibilityLabel={`Open ${item.name}`}
-                onPress={() => onOpenInvoice({ doctype: item.doctype, name: item.name })}
-              >
-                <Text numberOfLines={1} style={styles.heldInvoiceName}>
-                  {item.name}
-                </Text>
-              </Pressable>
+              <Text numberOfLines={1} style={styles.heldInvoiceName}>
+                {item.name}
+              </Text>
               <Text numberOfLines={1} style={styles.heldInvoiceCustomer}>
                 {item.customer_name || item.customer || "No customer"}
               </Text>
@@ -570,7 +580,10 @@ export function PosInvoicesScreen({
                 <Pressable
                   accessibilityLabel={`Edit ${item.name}`}
                   disabled={Boolean(restoringName)}
-                  onPress={() => void restoreHeld(item)}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    void restoreHeld(item);
+                  }}
                   style={[
                     styles.restoreButton,
                     restoringName && styles.paginationButtonDisabled,
@@ -584,7 +597,10 @@ export function PosInvoicesScreen({
                   <Pressable
                     accessibilityLabel={`Checkout ${item.name}`}
                     disabled={Boolean(restoringName)}
-                    onPress={() => void checkoutHeld(item)}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      void checkoutHeld(item);
+                    }}
                     style={styles.checkoutDraftButton}
                   >
                     <Text style={styles.checkoutDraftButtonLabel}>Checkout</Text>
@@ -592,7 +608,7 @@ export function PosInvoicesScreen({
                 ) : null}
               </View>
             </View>
-          </View>
+          </Pressable>
         )}
         refreshControl={
           <RefreshControl
@@ -641,16 +657,15 @@ export function PosInvoicesScreen({
         ListHeaderComponent={
           <View style={styles.header}>
             <View style={styles.heading}>
-              <View style={styles.titleRow}>
-                <Text style={styles.title}>Invoices</Text>
-              </View>
+              <Text accessibilityRole="header" style={styles.title}>
+                Sales history
+              </Text>
               <Text style={styles.subtitle}>
                 {historyFilters.documentType === "Draft Order"
                   ? "Review Sales Orders awaiting workflow approval."
                   : "Review completed sales from this POS workspace."}
               </Text>
             </View>
-
             {tabs}
 
             <View style={styles.filterActionRow}>
@@ -705,6 +720,7 @@ export function PosInvoicesScreen({
         }
         renderItem={({ item }) => (
           <PosInvoiceListItem
+            compactDraftOrder={historyFilters.documentType === "Draft Order"}
             currencyPrecision={currencyPrecision}
             invoice={item}
             onPress={() =>
@@ -747,6 +763,7 @@ export function PosInvoicesScreen({
         </View>
       ) : null}
       <PosInvoiceFiltersSheet
+        documentType={historyFilters.documentType}
         filters={draftFilters}
         onApply={applyFilters}
         onChange={updateDraftFilter}
@@ -1036,14 +1053,9 @@ function createStyles(palette: AppPalette) {
     },
     title: {
       color: palette.onSurface,
-      flex: 1,
       fontFamily: typography.fontFamily.semibold,
-      fontSize: 22,
-    },
-    titleRow: {
-      alignItems: "center",
-      flexDirection: "row",
-      gap: spacing.sm,
+      fontSize: 16,
+      lineHeight: typography.lineHeight.body,
     },
   });
 }

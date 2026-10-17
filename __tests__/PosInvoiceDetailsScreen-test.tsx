@@ -56,6 +56,7 @@ describe("PosInvoiceDetailsScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseInvoiceReceipt.mockReturnValue({
+      activeAction: null,
       error: null,
       isWorking: false,
       printReceipt: jest.fn(),
@@ -184,6 +185,7 @@ describe("PosInvoiceDetailsScreen", () => {
     ).toBeTruthy();
     expect(screen.getByText("Batch · LEGACY-BATCH")).toBeTruthy();
     expect(screen.queryByText("Batch ·")).toBeNull();
+    expect(screen.queryByText("POS audit")).toBeNull();
     expect(screen.getByLabelText("Print receipt")).toBeTruthy();
     expect(screen.getByLabelText("Share receipt")).toBeTruthy();
     expect(screen.getByLabelText("Open in ERPNext")).toBeTruthy();
@@ -278,6 +280,39 @@ describe("PosInvoiceDetailsScreen", () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
+  it("replaces the active receipt or ERPNext action label with a spinner", async () => {
+    mockUseInvoiceReceipt.mockReturnValue({
+      activeAction: "print",
+      error: null,
+      isWorking: true,
+      printReceipt: jest.fn(),
+      shareReceipt: jest.fn(),
+    });
+    mockUseErpNextRecord.mockReturnValue({
+      error: null,
+      isOpening: true,
+      openRecord: jest.fn(),
+    });
+
+    const screen = await render(
+      <PosInvoiceDetailsScreen
+        invoiceName="POS-INV-0001"
+        onBack={onBack}
+        onOpenCustomer={onOpenCustomer}
+        onOpenPaymentEntry={onOpenPaymentEntry}
+        onOpenReturn={onOpenReturn}
+        onStartReturn={onStartReturn}
+        onStartSale={onStartSale}
+      />,
+    );
+
+    expect(screen.getByText("Share")).toBeTruthy();
+    expect(screen.getByTestId("receipt-print-loading")).toBeTruthy();
+    expect(screen.getByTestId("erp-next-opening")).toBeTruthy();
+    expect(screen.queryByText("Print receipt")).toBeNull();
+    expect(screen.queryByText("Open in ERPNext")).toBeNull();
+  });
+
   it("offers draft editing only when ERPNext says the workflow state is editable", async () => {
     const detailsState = mockUsePosInvoiceDetails({
       invoiceDoctype: "POS Invoice",
@@ -290,6 +325,7 @@ describe("PosInvoiceDetailsScreen", () => {
         ...detailsState.data!,
         can_edit: true,
         docstatus: 0,
+        workflow_enabled: true,
         workflow_state: "Pending approval",
       },
     });
@@ -335,7 +371,7 @@ describe("PosInvoiceDetailsScreen", () => {
     expect(screen.queryByLabelText("Edit draft invoice")).toBeNull();
   });
 
-  it("renders a workflow draft status without crashing", async () => {
+  it("renders a sales order workflow state as a status summary", async () => {
     const detailsState = mockUsePosInvoiceDetails({
       invoiceDoctype: "Sales Order",
       invoiceName: "SAL-ORD-0001",
@@ -348,6 +384,7 @@ describe("PosInvoiceDetailsScreen", () => {
         docstatus: 0,
         doctype: "Sales Order",
         status: "Draft",
+        workflow_enabled: true,
         workflow_state: "Pending approval",
       },
     });
@@ -365,8 +402,9 @@ describe("PosInvoiceDetailsScreen", () => {
       />,
     );
 
-    expect(screen.getByText("Draft")).toBeTruthy();
-    expect(screen.getByText(/Pending approval/)).toBeTruthy();
+    expect(screen.getByText("Status")).toBeTruthy();
+    expect(screen.getByText("Pending approval")).toBeTruthy();
+    expect(screen.queryByText("Outstanding")).toBeNull();
   });
 
   it("opens the linked customer profile", async () => {

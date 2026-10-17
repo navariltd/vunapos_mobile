@@ -41,11 +41,11 @@ describe("PosInvoiceListItem", () => {
 
   it.each([
     ["Paid", lightPalette.success],
-    ["Partly Paid", lightPalette.onSurface],
-    ["Unpaid", lightPalette.error],
+    ["Partly Paid", lightPalette.warning],
+    ["Unpaid", lightPalette.warning],
     ["Overdue", lightPalette.error],
     ["Cancelled", lightPalette.error],
-    ["Credit Note", lightPalette.onSurface],
+    ["Credit Note", lightPalette.error],
   ] as [PosInvoiceStatus, string][])(
     "presents %s with its mapped status colour",
     async (status, color) => {
@@ -134,6 +134,8 @@ describe("PosInvoiceListItem", () => {
       <PosInvoiceListItem
         invoice={makeInvoice({
           doctype: "Sales Order",
+          outstandingAmount: 25,
+          workflowEnabled: true,
           workflowState: "Pending Payment Confirmation",
         })}
         onPress={onPress}
@@ -141,6 +143,8 @@ describe("PosInvoiceListItem", () => {
     );
 
     expect(salesOrder.getByText("Pending Payment Confirmation")).toBeTruthy();
+    expect(salesOrder.queryByText("Paid")).toBeNull();
+    expect(salesOrder.queryByText(/Outstanding/)).toBeNull();
 
     const invoice = await render(
       <PosInvoiceListItem
@@ -165,5 +169,56 @@ describe("PosInvoiceListItem", () => {
 
     expect(screen.queryByText("Pending Payment Confirmation")).toBeNull();
     expect(screen.queryByText("Approved")).toBeNull();
+  });
+
+  it("uses a compact, order-focused layout for draft orders", async () => {
+    const screen = await render(
+      <PosInvoiceListItem
+        compactDraftOrder
+        invoice={makeInvoice({
+          cashier: "Cashier One",
+          customerId: "CUST-001",
+          doctype: "Sales Order",
+          invoiceNumber: "SAL-ORD-00042",
+          itemCount: 4,
+          openingEntry: "POS-OPEN-0001",
+          outstandingAmount: 75,
+          payments: [
+            {
+              amount: 25,
+              mode_of_payment: "Cash",
+            },
+          ],
+          total: 125,
+          workflowEnabled: true,
+          workflowState: "Pending Payment Confirmation",
+        })}
+        onPress={onPress}
+      />,
+    );
+
+    expect(screen.getByText("SAL-ORD-00042")).toBeTruthy();
+    expect(screen.getByText("Example customer")).toBeTruthy();
+    expect(screen.getByText("12/09/2026 · 09:30")).toBeTruthy();
+    expect(screen.getByText("Status:")).toBeTruthy();
+    expect(screen.getByText("Pending Payment Confirmation")).toBeTruthy();
+    expect(screen.getByText("Total")).toBeTruthy();
+    expect(screen.getByText("KES 125.00")).toBeTruthy();
+
+    expect(screen.queryByText("CUST-001")).toBeNull();
+    expect(screen.queryByText(/Cashier:/)).toBeNull();
+    expect(screen.queryByText(/Shift:/)).toBeNull();
+    expect(screen.queryByText("Cash")).toBeNull();
+    expect(screen.queryByText(/Outstanding/)).toBeNull();
+
+    expect(
+      StyleSheet.flatten(
+        screen.getByText("Pending Payment Confirmation").props.style,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        color: lightPalette.onSurface,
+      }),
+    );
   });
 });

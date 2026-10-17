@@ -613,7 +613,11 @@ const styles = StyleSheet.create({
     fontSize: typography.size.small,
     lineHeight: typography.lineHeight.body,
   },
-  title: { fontFamily: typography.fontFamily.semibold, fontSize: 20 },
+  title: {
+    fontFamily: typography.fontFamily.semibold,
+    fontSize: 16,
+    lineHeight: typography.lineHeight.body,
+  },
   valueLabel: { fontFamily: typography.fontFamily.medium, fontSize: typography.size.tiny },
   valueText: { fontFamily: typography.fontFamily.regular, fontSize: typography.size.small },
 });

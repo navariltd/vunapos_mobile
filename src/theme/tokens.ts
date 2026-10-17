@@ -24,6 +24,8 @@ export type AppPalette = {
   surface: string;
   surfaceContainer: string;
   surfaceContainerHigh: string;
+  warning: string;
+  warningSurface: string;
 };
 
 export const lightPalette: AppPalette = {
@@ -45,6 +47,8 @@ export const lightPalette: AppPalette = {
   surface: "#ffffff",
   surfaceContainer: "#f3f3f3",
   surfaceContainerHigh: "#e9e9e9",
+  warning: "#8a4b08",
+  warningSurface: "#fff1e2",
 };
 
 export const darkPalette: AppPalette = {
@@ -66,6 +70,8 @@ export const darkPalette: AppPalette = {
   surface: "#1c1c1c",
   surfaceContainer: "#232323",
   surfaceContainerHigh: "#2a2a2a",
+  warning: "#ffb77d",
+  warningSurface: "#4b2a0d",
 };
 
 export const spacing = {

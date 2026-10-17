@@ -27,7 +27,7 @@ describe("PosItemListRow", () => {
     expect(screen.getByText("ITEM-001 · Nos")).toBeTruthy();
     expect(screen.getByText("Tax incl. · 16%")).toBeTruthy();
     expect(screen.getByText("KES 50.00")).toBeTruthy();
-    expect(screen.getByText("Qty 8")).toBeTruthy();
+    expect(screen.getByText("8 Nos")).toBeTruthy();
     fireEvent.press(screen.getByLabelText("Add Compact item"));
     expect(onAdd).toHaveBeenCalledWith(item);
   });

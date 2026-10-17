@@ -10,6 +10,8 @@ import { memo } from "react";
 import { Text } from "react-native-paper";
 
 import { formatPosCurrency } from "@/features/pos/currency";
+import { PosStockBalanceInfo } from "@/features/pos/components/PosStockBalanceInfo";
+import { formatAvailableStock } from "@/features/pos/stockBalance";
 import { PosCatalogueItem } from "@/features/pos/types";
 import { useAppearance } from "@/theme/AppearanceProvider";
 import { radii, spacing, typography } from "@/theme/tokens";
@@ -36,7 +38,7 @@ function taxLabel(item: PosCatalogueItem) {
 
 function quantityLabel(item: PosCatalogueItem) {
   if (!item.is_stock_item) return "Non-stock item";
-  return `Qty ${Number(item.actual_qty || 0)}`;
+  return formatAvailableStock(item);
 }
 
 export const PosItemCard = memo(function PosItemCard({
@@ -137,14 +139,19 @@ export const PosItemCard = memo(function PosItemCard({
                 currencyPrecision,
               )}
             </Text>
-            <Text
-              style={[
-                styles.quantity,
-                { color: outOfStock ? palette.error : palette.onSurfaceMuted },
-              ]}
-            >
-              {outOfStock ? "Out of stock" : quantityLabel(item)}
-            </Text>
+            <View style={styles.quantityRow}>
+              <Text
+                style={[
+                  styles.quantity,
+                  { color: outOfStock ? palette.error : palette.onSurfaceMuted },
+                ]}
+              >
+                {outOfStock ? "Out of stock" : quantityLabel(item)}
+              </Text>
+              {item.actual_qty !== undefined && item.actual_qty !== null ? (
+                <PosStockBalanceInfo item={item} />
+              ) : null}
+            </View>
           </View>
           <Pressable
             accessibilityHint={
@@ -264,6 +271,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.medium,
     fontSize: typography.size.tiny,
   },
+  quantityRow: { alignItems: "center", flexDirection: "row", gap: 3 },
   taxLabel: {
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.size.tiny,

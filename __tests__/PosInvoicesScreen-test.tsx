@@ -215,6 +215,13 @@ describe("PosInvoicesScreen", () => {
     const screen = await renderScreen();
 
     expect(screen.getByTestId("sales-document-tabs").props.horizontal).toBe(true);
+    expect(screen.getByText("Sales history")).toHaveStyle({
+      fontSize: 16,
+      lineHeight: 21,
+    });
+    expect(
+      screen.getByText("Review completed sales from this POS workspace."),
+    ).toBeTruthy();
     const renderedTabs = JSON.stringify(screen.toJSON());
     expect(renderedTabs.indexOf("Invoices history")).toBeLessThan(
       renderedTabs.indexOf("Draft invoices"),
@@ -375,6 +382,8 @@ describe("PosInvoicesScreen", () => {
     fireEvent.press(screen.getByLabelText("View sales summary"));
 
     expect(await screen.findByText("Orders summary")).toBeTruthy();
+    expect(screen.queryByText("Outstanding")).toBeNull();
+    expect(screen.queryByText("Credit outstanding")).toBeNull();
 
     fireEvent.press(screen.getByLabelText("Dismiss sales summary"));
 

@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 
 import { useErpNextRecord } from '@/features/pos/hooks/useErpNextRecord';
@@ -20,7 +20,11 @@ export function PosErpNextRecordLink({ doctype, name }: PosErpNextRecordLinkProp
     <View style={styles.content}>
       <Pressable accessibilityLabel="Open in ERPNext" disabled={isOpening} onPress={() => void openRecord({ doctype, name })} style={[styles.button, isOpening && styles.buttonDisabled]}>
         <MaterialCommunityIcons color={palette.onSurface} name="open-in-new" size={18} />
-        <Text style={styles.buttonLabel}>{isOpening ? 'Opening ERPNext…' : 'Open in ERPNext'}</Text>
+        {isOpening ? (
+          <ActivityIndicator color={palette.onSurface} size="small" testID="erp-next-opening" />
+        ) : (
+          <Text style={styles.buttonLabel}>Open in ERPNext</Text>
+        )}
       </Pressable>
       {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
     </View>

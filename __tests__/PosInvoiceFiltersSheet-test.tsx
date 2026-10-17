@@ -59,4 +59,25 @@ describe("PosInvoiceFiltersSheet", () => {
     expect(screen.queryByText("On")).toBeNull();
     expect(screen.queryByText("Off")).toBeNull();
   });
+
+  it("uses ERPNext Sales Order statuses when filtering orders", async () => {
+    const screen = await render(
+      <PosInvoiceFiltersSheet
+        documentType="Order"
+        filters={{ ...filters, documentType: "Order" }}
+        onApply={jest.fn()}
+        onChange={jest.fn()}
+        onClear={jest.fn()}
+        onDismiss={jest.fn()}
+        paymentModes={["Cash"]}
+        visible
+      />,
+    );
+
+    await fireEvent.press(screen.getByLabelText("Select invoice status"));
+
+    expect(screen.getByText("To deliver and bill")).toBeTruthy();
+    expect(screen.getByText("On hold")).toBeTruthy();
+    expect(screen.queryByText("Credit note")).toBeNull();
+  });
 });

@@ -18,6 +18,7 @@ type ReceiptRequest = {
 };
 
 type UseInvoiceReceiptResult = {
+  activeAction: 'print' | 'share' | null;
   error: string | null;
   isWorking: boolean;
   printReceipt: (request: ReceiptRequest) => Promise<void>;
@@ -32,6 +33,7 @@ function messageFor(error: unknown) {
 export function useInvoiceReceipt(): UseInvoiceReceiptResult {
   const { companyUrl, invalidateSession, sessionId } = useAppSession();
   const [error, setError] = useState<string | null>(null);
+  const [activeAction, setActiveAction] = useState<'print' | 'share' | null>(null);
   const [isWorking, setIsWorking] = useState(false);
 
   async function renderReceipt({ invoiceDoctype, invoiceName }: ReceiptRequest) {
@@ -52,6 +54,7 @@ export function useInvoiceReceipt(): UseInvoiceReceiptResult {
   async function perform(request: ReceiptRequest, action: 'print' | 'share') {
     if (isWorking) return;
     setError(null);
+    setActiveAction(action);
     setIsWorking(true);
 
     try {
@@ -73,11 +76,13 @@ export function useInvoiceReceipt(): UseInvoiceReceiptResult {
       }
       setError(messageFor(requestError));
     } finally {
+      setActiveAction(null);
       setIsWorking(false);
     }
   }
 
   return {
+    activeAction,
     error,
     isWorking,
     printReceipt: (request) => perform(request, 'print'),

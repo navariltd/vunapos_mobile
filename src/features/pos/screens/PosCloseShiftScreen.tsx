@@ -1087,7 +1087,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: typography.fontFamily.semibold,
-    fontSize: typography.size.heading,
+    fontSize: 16,
+    lineHeight: typography.lineHeight.body,
   },
 });
 

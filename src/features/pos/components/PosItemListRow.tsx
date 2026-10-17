@@ -4,6 +4,8 @@ import { memo } from "react";
 import { Text } from "react-native-paper";
 
 import { formatPosCurrency } from "@/features/pos/currency";
+import { PosStockBalanceInfo } from "@/features/pos/components/PosStockBalanceInfo";
+import { formatAvailableStock } from "@/features/pos/stockBalance";
 import { PosCatalogueItem } from "@/features/pos/types";
 import { useAppearance } from "@/theme/AppearanceProvider";
 import { radii, spacing, typography } from "@/theme/tokens";
@@ -110,18 +112,23 @@ export const PosItemListRow = memo(function PosItemListRow({
             currencyPrecision,
           )}
         </Text>
-        <Text
-          style={[
-            styles.quantity,
-            { color: outOfStock ? palette.error : palette.onSurfaceMuted },
-          ]}
-        >
-          {outOfStock
-            ? "Out of stock"
-            : item.is_stock_item
-              ? `Qty ${Number(item.actual_qty || 0)}`
-              : "Non-stock item"}
-        </Text>
+        <View style={styles.quantityRow}>
+          <Text
+            style={[
+              styles.quantity,
+              { color: outOfStock ? palette.error : palette.onSurfaceMuted },
+            ]}
+          >
+            {outOfStock
+              ? "Out of stock"
+              : item.is_stock_item
+                ? formatAvailableStock(item)
+                : "Non-stock item"}
+          </Text>
+          {item.actual_qty !== undefined && item.actual_qty !== null ? (
+            <PosStockBalanceInfo item={item} />
+          ) : null}
+        </View>
       </View>
       <View
         style={[
@@ -184,6 +191,12 @@ const styles = StyleSheet.create({
   quantity: {
     fontFamily: typography.fontFamily.medium,
     fontSize: typography.size.tiny,
+  },
+  quantityRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 3,
+    justifyContent: "flex-end",
   },
   row: {
     alignItems: "center",

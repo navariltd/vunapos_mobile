@@ -34,7 +34,7 @@ describe("PosItemCard", () => {
     expect(screen.getByText("ITEM-001")).toBeTruthy();
     expect(screen.getByText("Tax excl. · 16%")).toBeTruthy();
     expect(screen.getByText("KES 50.00")).toBeTruthy();
-    expect(screen.getByText("Qty 8")).toBeTruthy();
+    expect(screen.getByText("8 Nos")).toBeTruthy();
   });
 
   it("uses the item name as a fallback preview and adds available items", async () => {

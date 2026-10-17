@@ -8,6 +8,7 @@ import { useToast } from "@/components/feedback/ToastProvider";
 import { PosFixedPageHeader } from "@/features/pos/components/PosFixedPageHeader";
 import { PosInvoiceReceiptActions } from "@/features/pos/components/PosInvoiceReceiptActions";
 import { formatPosCurrency } from "@/features/pos/currency";
+import { getPosStatusPresentation, PosStatusTone } from "@/features/pos/status";
 import { usePosBootstrap } from "@/features/pos/hooks/usePosBootstrap";
 import { usePosInvoiceDetails } from "@/features/pos/hooks/usePosInvoiceDetails";
 import { usePosWorkflowActions } from "@/features/pos/hooks/usePosWorkflowActions";
@@ -17,7 +18,6 @@ import {
   PosInvoiceDetailItem,
   PosInvoicePaymentEntry,
   PosInvoiceReturn,
-  PosInvoiceStatus,
   PosSaleCustomer,
 } from "@/features/pos/types";
 import { useAppearance } from "@/theme/AppearanceProvider";
@@ -41,24 +41,19 @@ type PosInvoiceDetailsScreenProps = {
 
 function createStatusStyles(
   palette: AppPalette,
-): Record<PosInvoiceStatus, { backgroundColor: string; color: string }> {
+): Record<PosStatusTone, { backgroundColor: string; color: string }> {
   return {
-    "Credit Note": {
+    neutral: {
       backgroundColor: palette.surfaceContainerHigh,
       color: palette.onSurface,
     },
-    Draft: {
-      backgroundColor: palette.surfaceContainerHigh,
-      color: palette.onSurface,
+    workflow: { backgroundColor: palette.primary, color: palette.onPrimary },
+    error: { backgroundColor: palette.errorSurface, color: palette.error },
+    success: { backgroundColor: palette.surfaceContainer, color: palette.success },
+    warning: {
+      backgroundColor: palette.warningSurface,
+      color: palette.warning,
     },
-    Cancelled: { backgroundColor: palette.errorSurface, color: palette.error },
-    Overdue: { backgroundColor: palette.errorSurface, color: palette.error },
-    Paid: { backgroundColor: palette.surfaceContainer, color: palette.success },
-    "Partly Paid": {
-      backgroundColor: palette.surfaceContainerHigh,
-      color: palette.onSurface,
-    },
-    Unpaid: { backgroundColor: palette.errorSurface, color: palette.error },
   };
 }
 
@@ -211,7 +206,13 @@ export function PosInvoiceDetailsScreen({
   const formatCurrency = (amount: number, amountCurrency = currency) =>
     formatPosCurrency(amount, amountCurrency, precision);
   const total = invoice.totals.rounded_total || invoice.totals.grand_total || 0;
-  const statusStyle = createStatusStyles(palette)[invoice.status];
+  const status = getPosStatusPresentation({
+    status: invoice.status,
+    workflowEnabled: Boolean(invoice.workflow_enabled),
+    workflowState: invoice.workflow_state,
+  });
+  const statusStyle = createStatusStyles(palette)[status.tone];
+  const isSalesOrder = invoice.doctype === "Sales Order";
   const itemCount = invoice.items.reduce(
     (sum, item) => sum + Number(item.qty || 0),
     0,
@@ -261,22 +262,23 @@ export function PosInvoiceDetailsScreen({
               <Text numberOfLines={1} style={styles.title}>
                 {invoice.name}
               </Text>
-              <View style={[styles.status, statusStyle]}>
-                <Text
-                  style={[styles.statusLabel, { color: statusStyle.color }]}
-                >
-                  {invoice.status}
-                </Text>
-              </View>
+              {!isSalesOrder ? (
+                <View style={[styles.status, statusStyle]}>
+                  <Text
+                    style={[styles.statusLabel, { color: statusStyle.color }]}
+                  >
+                    {status.label}
+                  </Text>
+                </View>
+              ) : null}
             </View>
             <Text style={styles.subtitle}>
               {formatDateTime(invoice)}
-              {invoice.workflow_state ? ` · ${invoice.workflow_state}` : ""}
               {invoice.is_credit_sale && invoice.due_date
                 ? ` · Due ${formatDate(invoice.due_date)}`
                 : ""}
             </Text>
-            {invoice.is_credit_sale ? (
+            {invoice.is_credit_sale && !isSalesOrder ? (
               <Text style={styles.creditSale}>Credit sale</Text>
             ) : null}
           </View>
@@ -299,15 +301,20 @@ export function PosInvoiceDetailsScreen({
               precision,
             )}
           />
-          <SummaryValue
-            label="Outstanding"
-            value={formatPosCurrency(
-              invoice.totals.outstanding_amount || 0,
-              currency,
-              precision,
-            )}
-          />
+          {!isSalesOrder ? (
+            <SummaryValue
+              label="Outstanding"
+              value={formatPosCurrency(
+                invoice.totals.outstanding_amount || 0,
+                currency,
+                precision,
+              )}
+            />
+          ) : null}
           <SummaryValue label="Items" value={String(itemCount)} />
+          {isSalesOrder ? (
+            <SummaryValue label="Status" value={status.label} />
+          ) : null}
         </View>
 
         <View style={styles.secondaryActionRow}>
@@ -372,7 +379,7 @@ export function PosInvoiceDetailsScreen({
             {invoice.customer_name || invoiceCustomer || "No customer"}
           </Text>
           <Text style={styles.customerId}>{invoiceCustomer || "-"}</Text>
-          {invoice.is_credit_sale ? (
+          {invoice.is_credit_sale && !isSalesOrder ? (
             <View style={styles.keyValues}>
               <KeyValue
                 label="Payment due"
@@ -429,20 +436,6 @@ export function PosInvoiceDetailsScreen({
               </Pressable>
             </View>
           ) : null}
-        </DetailCard>
-
-        <DetailCard title="POS audit">
-          <View style={styles.keyValues}>
-            <KeyValue label="Cashier" value={invoice.cashier} />
-            <KeyValue label="POS Profile" value={invoice.pos_profile} />
-            <KeyValue
-              label="Price list"
-              value={invoice.selling_price_list || undefined}
-            />
-            <KeyValue label="Opening entry" value={invoice.opening_entry} />
-            <KeyValue label="Closing entry" value={invoice.closing_entry} />
-            <KeyValue label="Warehouse" value={invoice.warehouse} />
-          </View>
         </DetailCard>
 
         <DetailCard title="Items">

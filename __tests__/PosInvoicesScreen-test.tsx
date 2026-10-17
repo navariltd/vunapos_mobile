@@ -285,6 +285,72 @@ describe("PosInvoicesScreen", () => {
     expect(screen.getByLabelText("View sales summary")).toBeTruthy();
   });
 
+  it("shows only order tabs and queries orders for an order-locked POS Profile", async () => {
+    mockUsePosBootstrap.mockReturnValue({
+      data: {
+        payment_modes: [{ mode_of_payment: "Cash" }],
+        pos_profile: {
+          allow_order_type_change: false,
+          currency: "KES",
+          currency_precision: 2,
+          default_order_type: "Sales Order",
+          name: "POS-001",
+        },
+      },
+      error: null,
+      isLoading: false,
+      reload: jest.fn(),
+    } as unknown as ReturnType<typeof usePosBootstrap>);
+
+    const screen = await renderScreen();
+
+    await waitFor(() =>
+      expect(mockUsePosInvoiceHistory).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          filters: expect.objectContaining({ documentType: "Order" }),
+        }),
+      ),
+    );
+    expect(screen.getByRole("tab", { name: "Orders history" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Draft orders" })).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: "Invoices history" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Draft invoices" })).toBeNull();
+
+    fireEvent.press(screen.getByRole("tab", { name: "Draft orders" }));
+    await waitFor(() =>
+      expect(mockUsePosInvoiceHistory).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          filters: expect.objectContaining({ documentType: "Draft Order" }),
+        }),
+      ),
+    );
+  });
+
+  it("shows only invoice tabs for an invoice-locked POS Profile", async () => {
+    mockUsePosBootstrap.mockReturnValue({
+      data: {
+        payment_modes: [{ mode_of_payment: "Cash" }],
+        pos_profile: {
+          allow_order_type_change: false,
+          currency: "KES",
+          currency_precision: 2,
+          default_order_type: "Sales Invoice",
+          name: "POS-001",
+        },
+      },
+      error: null,
+      isLoading: false,
+      reload: jest.fn(),
+    } as unknown as ReturnType<typeof usePosBootstrap>);
+
+    const screen = await renderScreen();
+
+    expect(screen.getByRole("tab", { name: "Invoices history" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Draft invoices" })).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: "Orders history" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Draft orders" })).toBeNull();
+  });
+
   it("shows each posted-history summary in a dismissible modal", async () => {
     const screen = await renderScreen();
 

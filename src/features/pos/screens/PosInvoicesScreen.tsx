@@ -246,13 +246,36 @@ export function PosInvoicesScreen({
   const bootstrap = usePosBootstrap({
     manageFreshness: false,
   });
+  const lockedOrderType =
+    bootstrap.data?.pos_profile.allow_order_type_change === false
+      ? bootstrap.data.pos_profile.default_order_type === "Sales Order"
+        ? "Order"
+        : "Invoice"
+      : null;
+  function allowedDocumentType(
+    documentType: PosInvoiceHistoryFilters["documentType"],
+  ) {
+    if (lockedOrderType === "Invoice") return "Invoice";
+    if (lockedOrderType === "Order") {
+      return documentType === "Draft Order" ? "Draft Order" : "Order";
+    }
+    return documentType;
+  }
+  const historyFilters =
+    filters.documentType === allowedDocumentType(filters.documentType)
+      ? filters
+      : { ...filters, documentType: allowedDocumentType(filters.documentType) };
+  const visibleActiveTab =
+    lockedOrderType === "Order" && activeTab === "held"
+      ? "history"
+      : activeTab;
   const history = usePosInvoiceHistory({
-    filters,
+    filters: historyFilters,
     posProfile: bootstrap.data?.pos_profile.name,
     start,
   });
   const held = usePosHeldInvoices({
-    enabled: activeTab === "held",
+    enabled: visibleActiveTab === "held",
     posProfile: bootstrap.data?.pos_profile.name,
     refreshKey: heldRefreshKey,
   });
@@ -270,15 +293,21 @@ export function PosInvoicesScreen({
   const reloadHeld = held.reload;
   const reloadHistory = history.reload;
   const refreshActiveTab = useCallback(async () => {
-    if (activeTab === "held") await reloadHeld();
+    if (visibleActiveTab === "held") await reloadHeld();
     else await reloadHistory();
-  }, [activeTab, reloadHeld, reloadHistory]);
+  }, [reloadHeld, reloadHistory, visibleActiveTab]);
 
   function updateFilter<Key extends keyof PosInvoiceHistoryFilters>(
     field: Key,
     value: PosInvoiceHistoryFilters[Key],
   ) {
-    setFilters((current) => ({ ...current, [field]: value }));
+    setFilters((current) => {
+      const next = { ...current, [field]: value } as PosInvoiceHistoryFilters;
+      return {
+        ...next,
+        documentType: allowedDocumentType(next.documentType),
+      };
+    });
     setStart(0);
   }
 
@@ -286,16 +315,25 @@ export function PosInvoicesScreen({
     field: Key,
     value: PosInvoiceHistoryFilters[Key],
   ) {
-    setDraftFilters((current) => ({ ...current, [field]: value }));
+    setDraftFilters((current) => {
+      const next = { ...current, [field]: value } as PosInvoiceHistoryFilters;
+      return {
+        ...next,
+        documentType: allowedDocumentType(next.documentType),
+      };
+    });
   }
 
   function openFilterSheet() {
-    setDraftFilters(filters);
+    setDraftFilters(historyFilters);
     setFilterSheetVisible(true);
   }
 
   function applyFilters() {
-    setFilters(draftFilters);
+    setFilters({
+      ...draftFilters,
+      documentType: allowedDocumentType(draftFilters.documentType),
+    });
     setStart(0);
     setFilterSheetVisible(false);
   }
@@ -303,7 +341,7 @@ export function PosInvoicesScreen({
   function clearFilters() {
     const clearedFilters = {
       ...initialFilters,
-      documentType: filters.documentType,
+      documentType: historyFilters.documentType,
     };
     setDraftFilters(clearedFilters);
     setFilters(clearedFilters);
@@ -356,19 +394,22 @@ export function PosInvoicesScreen({
     }
   }, [heldError, historyError, toast]);
   const activeFilterCount = [
-    filters.customer,
-    filters.fromDate,
-    filters.invoice,
-    filters.paymentMode,
-    filters.saleType,
-    filters.status,
-    filters.toDate,
-    filters.currentShift ? "" : "currentShift",
+    historyFilters.customer,
+    historyFilters.fromDate,
+    historyFilters.invoice,
+    historyFilters.paymentMode,
+    historyFilters.saleType,
+    historyFilters.status,
+    historyFilters.toDate,
+    historyFilters.currentShift ? "" : "currentShift",
   ].filter(Boolean).length;
   const summaryDocumentLabel =
-    filters.documentType === "Invoice" ? "Invoices" : "Orders";
+    historyFilters.documentType === "Invoice" ? "Invoices" : "Orders";
   const canViewSummary =
-    filters.documentType === "Invoice" || filters.documentType === "Order";
+    historyFilters.documentType === "Invoice" ||
+    historyFilters.documentType === "Order";
+  const showInvoiceTabs = lockedOrderType !== "Order";
+  const showOrderTabs = lockedOrderType !== "Invoice";
 
   const tabs = (
     <ScrollView
@@ -378,42 +419,57 @@ export function PosInvoicesScreen({
       testID="sales-document-tabs"
     >
       <View accessibilityRole="tablist" style={styles.documentTabs}>
-        <DocumentTab
-          active={activeTab === "history" && filters.documentType === "Invoice"}
-          label="Invoices history"
-          onPress={() => {
-            setActiveTab("history");
-            updateFilter("documentType", "Invoice");
-          }}
-        />
-        <DocumentTab
-          active={activeTab === "held"}
-          label="Draft invoices"
-          onPress={() => setActiveTab("held")}
-        />
-        <DocumentTab
-          active={activeTab === "history" && filters.documentType === "Order"}
-          label="Orders history"
-          onPress={() => {
-            setActiveTab("history");
-            updateFilter("documentType", "Order");
-          }}
-        />
-        <DocumentTab
-          active={
-            activeTab === "history" && filters.documentType === "Draft Order"
-          }
-          label="Draft orders"
-          onPress={() => {
-            setActiveTab("history");
-            updateFilter("documentType", "Draft Order");
-          }}
-        />
+        {showInvoiceTabs ? (
+          <>
+            <DocumentTab
+              active={
+                visibleActiveTab === "history" &&
+                historyFilters.documentType === "Invoice"
+              }
+              label="Invoices history"
+              onPress={() => {
+                setActiveTab("history");
+                updateFilter("documentType", "Invoice");
+              }}
+            />
+            <DocumentTab
+              active={visibleActiveTab === "held"}
+              label="Draft invoices"
+              onPress={() => setActiveTab("held")}
+            />
+          </>
+        ) : null}
+        {showOrderTabs ? (
+          <>
+            <DocumentTab
+              active={
+                visibleActiveTab === "history" &&
+                historyFilters.documentType === "Order"
+              }
+              label="Orders history"
+              onPress={() => {
+                setActiveTab("history");
+                updateFilter("documentType", "Order");
+              }}
+            />
+            <DocumentTab
+              active={
+                visibleActiveTab === "history" &&
+                historyFilters.documentType === "Draft Order"
+              }
+              label="Draft orders"
+              onPress={() => {
+                setActiveTab("history");
+                updateFilter("documentType", "Draft Order");
+              }}
+            />
+          </>
+        ) : null}
       </View>
     </ScrollView>
   );
 
-  if (activeTab === "held") {
+  if (visibleActiveTab === "held") {
     const heldError = bootstrap.error ?? held.error ?? restoreError;
     return (
       <FlatList
@@ -567,7 +623,7 @@ export function PosInvoicesScreen({
             </Text>
           ) : historyError ? null : (
             <Text style={styles.emptyState}>
-              No {filters.documentType === "Invoice" ? "invoices" : "orders"}{" "}
+              No {historyFilters.documentType === "Invoice" ? "invoices" : "orders"}{" "}
               match these filters.
             </Text>
           )
@@ -589,7 +645,7 @@ export function PosInvoicesScreen({
                 <Text style={styles.title}>Invoices</Text>
               </View>
               <Text style={styles.subtitle}>
-                {filters.documentType === "Draft Order"
+                {historyFilters.documentType === "Draft Order"
                   ? "Review Sales Orders awaiting workflow approval."
                   : "Review completed sales from this POS workspace."}
               </Text>

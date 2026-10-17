@@ -61,10 +61,12 @@ jest.mock("@/features/pos/hooks/usePosHeldInvoices", () => ({
 
 jest.mock("@/features/pos/components/PosInvoiceListItem", () => ({
   PosInvoiceListItem: ({
+    compactSalesOrder,
     invoice,
     onPress,
   }: {
-    invoice: { invoiceNumber: string };
+    compactSalesOrder?: boolean;
+    invoice: { invoiceNumber: string; postedAt: string };
     onPress: () => void;
   }) => {
     const { Pressable, Text } = require("react-native");
@@ -73,7 +75,12 @@ jest.mock("@/features/pos/components/PosInvoiceListItem", () => ({
         accessibilityLabel={`Open ${invoice.invoiceNumber}`}
         onPress={onPress}
       >
-        <Text>{invoice.invoiceNumber}</Text>
+        <Text testID={`invoice-card-${invoice.invoiceNumber}`}>
+          {compactSalesOrder ? "compact" : "standard"}
+        </Text>
+        <Text testID={`invoice-date-${invoice.invoiceNumber}`}>
+          {invoice.postedAt}
+        </Text>
       </Pressable>
     );
   },
@@ -243,11 +250,13 @@ describe("PosInvoicesScreen", () => {
       }),
     );
     expect(screen.getByTestId("sales-history-pagination")).toHaveStyle({
-      bottom: 16,
-      position: "absolute",
-      right: 16,
+      alignSelf: "flex-end",
+      flexDirection: "row",
     });
     expect(screen.getByText("Previous").parent).toHaveStyle({ minHeight: 36 });
+    expect(screen.getByTestId("invoice-date-POS-INV-0001")).toHaveTextContent(
+      "12/09/2026 · 09:30",
+    );
 
     fireEvent.press(screen.getByLabelText("Open POS-INV-0001"));
 
@@ -255,6 +264,27 @@ describe("PosInvoicesScreen", () => {
       doctype: "POS Invoice",
       name: "POS-INV-0001",
     });
+  });
+
+  it("formats non-padded backend times without a trailing colon", async () => {
+    mockUsePosInvoiceHistory.mockReturnValue({
+      ...historyResult,
+      data: {
+        ...historyResult.data,
+        invoices: [
+          {
+            ...historyResult.data.invoices[0],
+            posting_time: "3:55:00",
+          },
+        ],
+      },
+    } as unknown as ReturnType<typeof usePosInvoiceHistory>);
+
+    const screen = await renderScreen();
+
+    expect(screen.getByTestId("invoice-date-POS-INV-0001")).toHaveTextContent(
+      "12/09/2026 · 3:55",
+    );
   });
 
   it("changes the history query when switching to orders history", async () => {
@@ -289,6 +319,9 @@ describe("PosInvoicesScreen", () => {
     ).toEqual({
       selected: true,
     });
+    expect(screen.getByTestId("invoice-card-POS-INV-0001")).toHaveTextContent(
+      "compact",
+    );
     expect(screen.getByLabelText("View sales summary")).toBeTruthy();
   });
 

@@ -156,7 +156,10 @@ describe("PosCustomersScreen", () => {
     expect(screen.getByText("Restricted")).toBeTruthy();
     expect(screen.getByText("Unavailable")).toBeTruthy();
     expect(screen.getByText("No purchases")).toBeTruthy();
-    expect(screen.getByText("50 customers")).toBeTruthy();
+    expect(screen.getByTestId("customers-pagination")).toHaveStyle({
+      alignSelf: "flex-end",
+      flexDirection: "row",
+    });
     expect(
       screen.getByRole("button", { name: "Previous customer page" }).props
         .accessibilityState?.disabled,

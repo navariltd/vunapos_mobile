@@ -8,7 +8,7 @@ import { useAppearance } from "@/theme/AppearanceProvider";
 import { AppPalette, radii, spacing, typography } from "@/theme/tokens";
 
 type PosInvoiceListItemProps = {
-  compactDraftOrder?: boolean;
+  compactSalesOrder?: boolean;
   currencyPrecision?: number;
   invoice: PosInvoiceListRow;
   onPress: () => void;
@@ -51,8 +51,12 @@ function formatDueDate(value?: string) {
   }).format(date);
 }
 
+function formatCompactPostedAt(value: string) {
+  return value.replace(" · ", " ");
+}
+
 export function PosInvoiceListItem({
-  compactDraftOrder = false,
+  compactSalesOrder = false,
   currencyPrecision = 2,
   invoice,
   onPress,
@@ -69,14 +73,21 @@ export function PosInvoiceListItem({
   const formatCurrency = (amount: number, currency = invoice.currency) =>
     formatPosCurrency(amount, currency, currencyPrecision);
 
-  if (compactDraftOrder) {
+  if (compactSalesOrder) {
     return (
       <Pressable
         accessibilityLabel={`Open ${invoice.invoiceNumber}`}
         onPress={onPress}
-        style={[styles.card, styles.compactDraftOrderCard]}
+        style={[styles.card, styles.compactSalesOrderCard]}
       >
-        <Text style={styles.compactOrderNumber}>{invoice.invoiceNumber}</Text>
+        <View style={styles.compactHeader}>
+          <Text numberOfLines={1} style={styles.compactOrderNumber}>
+            {invoice.invoiceNumber}
+          </Text>
+          <Text style={styles.metadata}>
+            {formatCompactPostedAt(invoice.postedAt)}
+          </Text>
+        </View>
 
         <Text numberOfLines={1} style={styles.customer}>
           {invoice.customerName}
@@ -86,8 +97,6 @@ export function PosInvoiceListItem({
           <Text style={styles.compactStatusLabel}>Status:</Text>
           <Text style={styles.compactStatusValue}>{status.label}</Text>
         </View>
-
-        <Text style={styles.metadata}>{invoice.postedAt}</Text>
 
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total</Text>
@@ -208,13 +217,21 @@ function createStyles(palette: AppPalette) {
       gap: spacing.sm,
       padding: spacing.md,
     },
-    compactDraftOrderCard: {
+    compactSalesOrderCard: {
       gap: spacing.xs,
+    },
+    compactHeader: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: spacing.sm,
+      justifyContent: "space-between",
     },
     compactOrderNumber: {
       color: palette.onSurface,
+      flex: 1,
       fontFamily: typography.fontFamily.semibold,
       fontSize: typography.size.body,
+      minWidth: 0,
     },
     compactStatusLabel: {
       color: palette.onSurfaceMuted,

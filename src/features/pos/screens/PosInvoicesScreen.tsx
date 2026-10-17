@@ -44,7 +44,9 @@ function formatPostedAt(row: PosInvoiceHistoryRow) {
   const date = row.posting_date
     ? row.posting_date.split("-").reverse().join("/")
     : "-";
-  const time = row.posting_time?.split(".")[0]?.slice(0, 5);
+  const rawTime = row.posting_time?.split(".")[0];
+  const [hour, minute] = rawTime?.split(":") ?? [];
+  const time = hour && minute ? `${hour}:${minute}` : rawTime;
   return time ? `${date} · ${time}` : date;
 }
 
@@ -646,12 +648,36 @@ export function PosInvoicesScreen({
         }
         ListFooterComponent={
           history.data ? (
-            <PosCacheStatus
-              isOffline={isOffline}
-              isRefreshing={history.isRefreshing}
-              isStale={history.isStale}
-              lastUpdated={history.lastUpdated}
-            />
+            <View style={styles.historyFooter}>
+              <PosCacheStatus
+                isOffline={isOffline}
+                isRefreshing={history.isRefreshing}
+                isStale={history.isStale}
+                lastUpdated={history.lastUpdated}
+              />
+              <View style={styles.pagination} testID="sales-history-pagination">
+                <Pressable
+                  disabled={start === 0}
+                  onPress={() => setStart((current) => Math.max(0, current - 25))}
+                  style={[
+                    styles.paginationButton,
+                    start === 0 && styles.paginationButtonDisabled,
+                  ]}
+                >
+                  <Text style={styles.paginationLabel}>Previous</Text>
+                </Pressable>
+                <Pressable
+                  disabled={!history.data.has_more}
+                  onPress={() => setStart((current) => current + 25)}
+                  style={[
+                    styles.paginationButton,
+                    !history.data.has_more && styles.paginationButtonDisabled,
+                  ]}
+                >
+                  <Text style={styles.paginationLabel}>Next</Text>
+                </Pressable>
+              </View>
+            </View>
           ) : null
         }
         ListHeaderComponent={
@@ -720,7 +746,10 @@ export function PosInvoicesScreen({
         }
         renderItem={({ item }) => (
           <PosInvoiceListItem
-            compactDraftOrder={historyFilters.documentType === "Draft Order"}
+            compactSalesOrder={
+              historyFilters.documentType === "Order" ||
+              historyFilters.documentType === "Draft Order"
+            }
             currencyPrecision={currencyPrecision}
             invoice={item}
             onPress={() =>
@@ -738,30 +767,6 @@ export function PosInvoicesScreen({
         }
         showsVerticalScrollIndicator={false}
       />
-      {history.data ? (
-        <View style={styles.stickyPagination} testID="sales-history-pagination">
-          <Pressable
-            disabled={start === 0}
-            onPress={() => setStart((current) => Math.max(0, current - 25))}
-            style={[
-              styles.stickyPaginationButton,
-              start === 0 && styles.paginationButtonDisabled,
-            ]}
-          >
-            <Text style={styles.stickyPaginationLabel}>Previous</Text>
-          </Pressable>
-          <Pressable
-            disabled={!history.data.has_more}
-            onPress={() => setStart((current) => current + 25)}
-            style={[
-              styles.stickyPaginationButton,
-              !history.data.has_more && styles.paginationButtonDisabled,
-            ]}
-          >
-            <Text style={styles.stickyPaginationLabel}>Next</Text>
-          </Pressable>
-        </View>
-      ) : null}
       <PosInvoiceFiltersSheet
         documentType={historyFilters.documentType}
         filters={draftFilters}
@@ -923,14 +928,16 @@ function createStyles(palette: AppPalette) {
     heading: {
       gap: 4,
     },
-    stickyPagination: {
-      bottom: spacing.md,
+    historyFooter: {
+      gap: spacing.sm,
+      paddingTop: spacing.md,
+    },
+    pagination: {
+      alignSelf: "flex-end",
       flexDirection: "row",
       gap: spacing.xs,
-      position: "absolute",
-      right: spacing.md,
     },
-    stickyPaginationButton: {
+    paginationButton: {
       backgroundColor: palette.surface,
       borderColor: palette.border,
       borderRadius: radii.md,
@@ -942,7 +949,7 @@ function createStyles(palette: AppPalette) {
     paginationButtonDisabled: {
       opacity: 0.4,
     },
-    stickyPaginationLabel: {
+    paginationLabel: {
       color: palette.onSurface,
       fontFamily: typography.fontFamily.semibold,
       fontSize: typography.size.tiny,

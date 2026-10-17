@@ -171,10 +171,10 @@ describe("PosInvoiceListItem", () => {
     expect(screen.queryByText("Approved")).toBeNull();
   });
 
-  it("uses a compact, order-focused layout for draft orders", async () => {
+  it("uses a compact, order-focused layout for sales orders", async () => {
     const screen = await render(
       <PosInvoiceListItem
-        compactDraftOrder
+        compactSalesOrder
         invoice={makeInvoice({
           cashier: "Cashier One",
           customerId: "CUST-001",
@@ -199,7 +199,7 @@ describe("PosInvoiceListItem", () => {
 
     expect(screen.getByText("SAL-ORD-00042")).toBeTruthy();
     expect(screen.getByText("Example customer")).toBeTruthy();
-    expect(screen.getByText("12/09/2026 · 09:30")).toBeTruthy();
+    expect(screen.getByText("12/09/2026 09:30")).toBeTruthy();
     expect(screen.getByText("Status:")).toBeTruthy();
     expect(screen.getByText("Pending Payment Confirmation")).toBeTruthy();
     expect(screen.getByText("Total")).toBeTruthy();

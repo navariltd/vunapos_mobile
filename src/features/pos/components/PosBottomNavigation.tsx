@@ -7,11 +7,11 @@ import { useAppearance } from "@/theme/AppearanceProvider";
 import { radii, spacing, typography } from "@/theme/tokens";
 
 const navigationItems = [
-  { icon: "home-outline", label: "Home" },
-  { icon: "receipt-text-outline", label: "Invoices" },
-  { icon: "credit-card-outline", label: "Payments" },
-  { icon: "account-group-outline", label: "Customers" },
-  { icon: "logout-variant", label: "Close Shift" },
+  { icon: "home-outline", label: "Home", tab: "Home" },
+  { icon: "receipt-text-outline", label: "Sales", tab: "Invoices" },
+  { icon: "credit-card-outline", label: "Payments", tab: "Payments" },
+  { icon: "account-group-outline", label: "Customers", tab: "Customers" },
+  { icon: "logout-variant", label: "Close Shift", tab: "Close Shift" },
 ] as const;
 
 type PosBottomNavigationProps = {
@@ -22,16 +22,16 @@ type PosBottomNavigationProps = {
 };
 
 function isImplementedTab(
-  label: string,
+  tab: PosNavigationTab,
   customersEnabled: boolean,
   paymentsEnabled: boolean,
-): label is PosNavigationTab {
+): boolean {
   return (
-    label === "Home" ||
-    label === "Invoices" ||
-    label === "Close Shift" ||
-    (label === "Customers" && customersEnabled) ||
-    (label === "Payments" && paymentsEnabled)
+    tab === "Home" ||
+    tab === "Invoices" ||
+    tab === "Close Shift" ||
+    (tab === "Customers" && customersEnabled) ||
+    (tab === "Payments" && paymentsEnabled)
   );
 }
 
@@ -52,8 +52,8 @@ export function PosBottomNavigation({
         { backgroundColor: palette.surface, borderTopColor: palette.border },
       ]}
     >
-      {navigationItems.map(({ icon, label }) => {
-        const isActive = label === activeTab;
+      {navigationItems.map(({ icon, label, tab }) => {
+        const isActive = tab === activeTab;
         const color = isActive ? palette.onPrimary : palette.onSurfaceMuted;
         const itemContent = (
           <>
@@ -62,14 +62,14 @@ export function PosBottomNavigation({
           </>
         );
 
-        if (isImplementedTab(label, customersEnabled, paymentsEnabled)) {
+        if (isImplementedTab(tab, customersEnabled, paymentsEnabled)) {
           return (
             <Pressable
               accessibilityLabel={label}
               accessibilityRole="tab"
               accessibilityState={{ selected: isActive }}
-              key={label}
-              onPress={() => onTabChange(label)}
+              key={tab}
+              onPress={() => onTabChange(tab)}
               style={[
                 styles.item,
                 isActive && { backgroundColor: palette.primary },
@@ -85,7 +85,7 @@ export function PosBottomNavigation({
             accessibilityLabel={label}
             accessibilityRole="tab"
             accessibilityState={{ disabled: true }}
-            key={label}
+            key={tab}
             style={styles.item}
           >
             {itemContent}

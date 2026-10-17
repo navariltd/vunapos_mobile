@@ -52,6 +52,17 @@ describe("PosBottomNavigation", () => {
     expect(onTabChange).toHaveBeenCalledWith("Payments");
   });
 
+  it("labels the invoice history tab as Sales", async () => {
+    const screen = await render(
+      <PosBottomNavigation activeTab="Home" onTabChange={onTabChange} />,
+    );
+
+    await fireEvent.press(screen.getByRole("tab", { name: "Sales" }));
+
+    expect(onTabChange).toHaveBeenCalledWith("Invoices");
+    expect(screen.queryByRole("tab", { name: "Invoices" })).toBeNull();
+  });
+
   it("opens Close Shift", async () => {
     const screen = await render(
       <PosBottomNavigation

@@ -1236,128 +1236,6 @@ export function PosCheckoutScreen({
           </Text>
         ) : null}
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Checkout summary</Text>
-          {isInvoice && preview.data ? (
-            <>
-              <SummaryRow label="Customer" value={customerName} />
-              <View style={styles.summaryDivider} />
-              <Text style={styles.summarySectionTitle}>Items</Text>
-              <View style={styles.summaryItems}>
-                {preview.data.items.map((item) => (
-                  <SummaryRow
-                    key={item.row_name || item.item_code}
-                    label={`${item.qty} × ${item.item_name}`}
-                    value={formatCurrency(item.amount, currency, precision)}
-                  />
-                ))}
-              </View>
-              <View style={styles.summaryDivider} />
-              <SummaryRow
-                label="Subtotal"
-                value={formatCurrency(netTotal, currency, precision)}
-              />
-              {(preview.data.taxes ?? []).map((tax, index) => (
-                <SummaryRow
-                  key={`${tax.account_head || tax.description || "tax"}-${index}`}
-                  label={taxLabel(
-                    tax.description,
-                    tax.account_head,
-                    tax.rate,
-                  )}
-                  value={formatCurrency(
-                    tax.tax_amount ?? 0,
-                    currency,
-                    precision,
-                  )}
-                />
-              ))}
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Grand total</Text>
-                <Text style={styles.totalValue}>
-                  {formatCurrency(grandTotal, currency, precision)}
-                </Text>
-              </View>
-              {roundedTotal !== undefined && roundedTotal !== grandTotal ? (
-                <SummaryRow
-                  label="Rounded total"
-                  value={formatCurrency(roundedTotal, currency, precision)}
-                />
-              ) : null}
-              {loyaltyAmount ? (
-                <>
-                  <SummaryRow
-                    label="Loyalty redemption"
-                    value={`−${formatCurrency(loyaltyAmount, currency, precision)}`}
-                  />
-                  <SummaryRow
-                    label="Amount payable"
-                    value={formatCurrency(total, currency, precision)}
-                  />
-                </>
-              ) : null}
-              <View style={styles.summaryDivider} />
-              <SummaryRow
-                label="Paid"
-                value={formatCurrency(paidAmount, currency, precision)}
-              />
-              <SummaryRow
-                label={checkoutBalanceLabel}
-                value={formatCurrency(
-                  checkoutBalanceAmount,
-                  currency,
-                  precision,
-                )}
-              />
-            </>
-          ) : (
-            <>
-              <SummaryRow label="Customer" value={customerName} />
-              <View style={styles.summaryDivider} />
-              <Text style={styles.summarySectionTitle}>Items</Text>
-              <View style={styles.summaryItems}>
-                {items.map((item) => (
-                  <SummaryRow
-                    key={item.item_code}
-                    label={`${item.qty} × ${item.item_name}`}
-                    value={formatCurrency(
-                      item.amount ?? item.qty * item.rate,
-                      currency,
-                      precision,
-                    )}
-                  />
-                ))}
-              </View>
-              <View style={styles.summaryDivider} />
-              <SummaryRow
-                label="Estimated subtotal"
-                value={formatCurrency(subtotal, currency, precision)}
-              />
-              <SummaryRow
-                label="Estimated total"
-                value={formatCurrency(subtotal, currency, precision)}
-              />
-              <Text style={styles.cardHint}>
-                Final taxes and totals will be confirmed by Frappe when the
-                Sales Order is {isEditingWorkflowDraft ? "saved" : "submitted"}.
-              </Text>
-              <View style={styles.summaryDivider} />
-              <SummaryRow
-                label="Advance paid"
-                value={formatCurrency(paidAmount, currency, precision)}
-              />
-              <SummaryRow
-                label={isPaymentOverpaid ? "Cash change" : "Estimated balance"}
-                value={formatCurrency(
-                  checkoutBalanceAmount,
-                  currency,
-                  precision,
-                )}
-              />
-            </>
-          )}
-        </View>
-
         {activeWorkflow ? (
           <View style={styles.workflowCard}>
             <MaterialCommunityIcons
@@ -1662,7 +1540,7 @@ export function PosCheckoutScreen({
         />
 
         {(isInvoice && !isCreditSale) || allowsSalesOrderAdvancePayments ? (
-          <View style={styles.card}>
+          <View style={styles.card} testID="checkout-payment-methods">
             <Text style={styles.cardTitle}>
               {isInvoice ? "Payment methods" : "Sales Order advance payment"}
             </Text>
@@ -1749,8 +1627,8 @@ export function PosCheckoutScreen({
                   return (
                     <View key={mode.mode_of_payment} style={styles.paymentMode}>
                       <View style={styles.paymentModeRow}>
-                        {isInvoice ? modeButton : amountField}
-                        {isInvoice ? amountField : modeButton}
+                        {amountField}
+                        {modeButton}
                       </View>
                       {needsReference ? (
                         <View style={styles.paymentReference}>
@@ -1895,6 +1773,128 @@ export function PosCheckoutScreen({
           </View>
         ) : null}
 
+        <View style={styles.card} testID="checkout-summary">
+          <View style={styles.summaryHeading}>
+            <Text style={styles.cardTitle}>Checkout summary</Text>
+            <Text style={styles.summaryItemCount}>
+              {items.length} item{items.length === 1 ? "" : "s"}
+            </Text>
+          </View>
+          {isInvoice && preview.data ? (
+            <>
+              <View style={styles.summaryItems}>
+                {preview.data.items.map((item) => (
+                  <SummaryRow
+                    key={item.row_name || item.item_code}
+                    label={`${item.qty} × ${item.item_name}`}
+                    value={formatCurrency(item.amount, currency, precision)}
+                  />
+                ))}
+              </View>
+              <View style={styles.summaryDivider} />
+              <SummaryRow
+                label="Subtotal"
+                value={formatCurrency(netTotal, currency, precision)}
+              />
+              {(preview.data.taxes ?? []).map((tax, index) => (
+                <SummaryRow
+                  key={`${tax.account_head || tax.description || "tax"}-${index}`}
+                  label={taxLabel(
+                    tax.description,
+                    tax.account_head,
+                    tax.rate,
+                  )}
+                  value={formatCurrency(
+                    tax.tax_amount ?? 0,
+                    currency,
+                    precision,
+                  )}
+                />
+              ))}
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Grand total</Text>
+                <Text style={styles.totalValue}>
+                  {formatCurrency(grandTotal, currency, precision)}
+                </Text>
+              </View>
+              {roundedTotal !== undefined && roundedTotal !== grandTotal ? (
+                <SummaryRow
+                  label="Rounded total"
+                  value={formatCurrency(roundedTotal, currency, precision)}
+                />
+              ) : null}
+              {loyaltyAmount ? (
+                <>
+                  <SummaryRow
+                    label="Loyalty redemption"
+                    value={`−${formatCurrency(loyaltyAmount, currency, precision)}`}
+                  />
+                  <SummaryRow
+                    label="Amount payable"
+                    value={formatCurrency(total, currency, precision)}
+                  />
+                </>
+              ) : null}
+              <SummaryRow
+                label="Paid"
+                value={formatCurrency(paidAmount, currency, precision)}
+              />
+              <SummaryRow
+                label={checkoutBalanceLabel}
+                value={formatCurrency(
+                  checkoutBalanceAmount,
+                  currency,
+                  precision,
+                )}
+              />
+            </>
+          ) : (
+            <>
+              <View style={styles.summaryItems}>
+                {items.map((item) => (
+                  <SummaryRow
+                    key={item.item_code}
+                    label={`${item.qty} × ${item.item_name}`}
+                    value={formatCurrency(
+                      item.amount ?? item.qty * item.rate,
+                      currency,
+                      precision,
+                    )}
+                  />
+                ))}
+              </View>
+              <View style={styles.summaryDivider} />
+              <SummaryRow
+                label="Estimated total"
+                value={formatCurrency(subtotal, currency, precision)}
+              />
+              <Text style={styles.cardHint}>
+                Final taxes and totals will be confirmed when the Sales Order is{" "}
+                {isEditingWorkflowDraft ? "saved" : "submitted"}.
+              </Text>
+              <SummaryRow
+                label="Advance paid"
+                value={formatCurrency(paidAmount, currency, precision)}
+              />
+              <SummaryRow
+                label={isPaymentOverpaid ? "Cash change" : "Estimated balance"}
+                value={formatCurrency(
+                  checkoutBalanceAmount,
+                  currency,
+                  precision,
+                )}
+              />
+            </>
+          )}
+        </View>
+
+      </KeyboardAwareFormScroll>
+
+      <SafeAreaView
+        edges={["bottom"]}
+        style={styles.checkoutFooter}
+        testID="checkout-actions"
+      >
         {validationError || (checkout.error && !checkout.isRequiredFieldError) ? (
           <Text style={styles.errorText}>
             {validationError || checkout.error}
@@ -1916,7 +1916,14 @@ export function PosCheckoutScreen({
               {isHolding ? (
                 <ActivityIndicator color="#ffffff" size="small" />
               ) : (
-                <Text style={styles.holdActionLabel}>Hold</Text>
+                <>
+                  <MaterialCommunityIcons
+                    color="#ffffff"
+                    name="pause"
+                    size={18}
+                  />
+                  <Text style={styles.holdActionLabel}>Hold</Text>
+                </>
               )}
             </Pressable>
           ) : null}
@@ -1945,15 +1952,16 @@ export function PosCheckoutScreen({
             </Text>
           </Pressable>
         </View>
+      </SafeAreaView>
 
-        <Modal
-          animationType="slide"
-          onRequestClose={() => {
-            if (!gatewayPayment.isWorking) setActiveGatewayMode(null);
-          }}
-          presentationStyle="pageSheet"
-          visible={Boolean(activeGatewayMode)}
-        >
+      <Modal
+        animationType="slide"
+        onRequestClose={() => {
+          if (!gatewayPayment.isWorking) setActiveGatewayMode(null);
+        }}
+        presentationStyle="pageSheet"
+        visible={Boolean(activeGatewayMode)}
+      >
           {activeGatewayMode ? (
             <SafeAreaView
               edges={["top", "bottom"]}
@@ -2261,7 +2269,6 @@ export function PosCheckoutScreen({
             </SafeAreaView>
           ) : null}
         </Modal>
-      </KeyboardAwareFormScroll>
       <Modal
         animationType="fade"
         onRequestClose={() => undefined}
@@ -2373,11 +2380,19 @@ function createStyles(palette: AppPalette) {
     content: {
       gap: spacing.md,
       padding: spacing.md,
-      paddingBottom: spacing.xxl,
+      paddingBottom: spacing.lg,
     },
     checkoutActions: {
       flexDirection: "row",
       gap: spacing.sm,
+    },
+    checkoutFooter: {
+      backgroundColor: palette.surface,
+      borderTopColor: palette.border,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      gap: spacing.xs,
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.sm,
     },
     creditSaleRow: {
       alignItems: "center",
@@ -2693,6 +2708,8 @@ function createStyles(palette: AppPalette) {
       backgroundColor: "#99571f",
       borderRadius: radii.md,
       flex: 0.55,
+      flexDirection: "row",
+      gap: spacing.xs,
       justifyContent: "center",
       minHeight: 50,
       paddingHorizontal: spacing.md,
@@ -2730,13 +2747,18 @@ function createStyles(palette: AppPalette) {
       height: StyleSheet.hairlineWidth,
       marginVertical: spacing.xs,
     },
-    summaryItems: { gap: spacing.xs },
-    summaryRow: { flexDirection: "row", justifyContent: "space-between" },
-    summarySectionTitle: {
-      color: palette.onSurface,
-      fontFamily: typography.fontFamily.semibold,
+    summaryHeading: {
+      alignItems: "baseline",
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    summaryItemCount: {
+      color: palette.onSurfaceMuted,
+      fontFamily: typography.fontFamily.regular,
       fontSize: typography.size.small,
     },
+    summaryItems: { gap: spacing.xs },
+    summaryRow: { flexDirection: "row", justifyContent: "space-between" },
     summaryValue: {
       color: palette.onSurface,
       fontFamily: typography.fontFamily.medium,

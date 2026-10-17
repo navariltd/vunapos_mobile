@@ -4,6 +4,7 @@ import {
   fireEvent,
   render,
   waitFor,
+  within,
 } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 import type { ComponentProps } from "react";
@@ -415,6 +416,16 @@ describe("PosCheckoutScreen", () => {
     const holdButton = screen.getByLabelText("Hold checkout");
     const completeButton = screen.getByLabelText("Complete sale");
     expect(holdButton.parent).toBe(completeButton.parent);
+    expect(
+      within(screen.getByTestId("checkout-actions")).getByLabelText(
+        "Hold checkout",
+      ),
+    ).toBe(holdButton);
+    expect(
+      within(screen.getByTestId("checkout-actions")).getByLabelText(
+        "Complete sale",
+      ),
+    ).toBe(completeButton);
     expect(screen.getByText("Complete sale")).toBeTruthy();
     expect(screen.queryByText(/Complete sale ·/)).toBeNull();
     expect(screen.queryByLabelText("Clear checkout")).toBeNull();
@@ -604,6 +615,9 @@ describe("PosCheckoutScreen", () => {
     );
     const invoiceCashAmount = screen.getByLabelText("Cash amount");
     expect(invoiceCashAmount.parent?.parent?.children[0]).toBe(
+      invoiceCashAmount.parent,
+    );
+    expect(invoiceCashAmount.parent?.parent?.children[1]).toBe(
       screen.getByLabelText("Allocate all to Cash"),
     );
     expect(screen.getByText("Amount payable")).toBeTruthy();
@@ -1410,6 +1424,13 @@ describe("PosCheckoutScreen", () => {
     );
 
     expect(screen.getByText("Checkout summary")).toBeTruthy();
+    expect(
+      within(screen.getByTestId("checkout-summary")).queryByText("ABC Corps"),
+    ).toBeNull();
+    const renderedCheckout = JSON.stringify(screen.toJSON());
+    expect(
+      renderedCheckout.indexOf("checkout-payment-methods"),
+    ).toBeLessThan(renderedCheckout.indexOf("checkout-summary"));
     expect(screen.getByText("1 × Stock item")).toBeTruthy();
     expect(screen.getByText("Subtotal")).toBeTruthy();
     expect(screen.getByText("VAT · 16%")).toBeTruthy();
@@ -2532,13 +2553,11 @@ describe("PosCheckoutScreen", () => {
       />,
     );
 
-    expect(screen.getByText("Items")).toBeTruthy();
     expect(screen.getByText("1 × Stock item")).toBeTruthy();
-    expect(screen.getByText("Estimated subtotal")).toBeTruthy();
     expect(screen.getByText("Estimated total")).toBeTruthy();
     expect(
       screen.getByText(
-        "Final taxes and totals will be confirmed by Frappe when the Sales Order is submitted.",
+        "Final taxes and totals will be confirmed when the Sales Order is submitted.",
       ),
     ).toBeTruthy();
     expect(screen.getByText("Sales Order advance payment")).toBeTruthy();

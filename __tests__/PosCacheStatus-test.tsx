@@ -9,7 +9,7 @@ jest.mock("@/theme/AppearanceProvider", () => ({
 import { PosCacheStatus } from "@/features/pos/components/PosCacheStatus";
 
 describe("PosCacheStatus", () => {
-  it("keeps stale and refresh state in the natural page flow", async () => {
+  it("keeps refresh state in the natural page flow without exposing timestamps", async () => {
     const screen = await render(
       <PosCacheStatus
         isOffline={false}
@@ -19,11 +19,12 @@ describe("PosCacheStatus", () => {
       />,
     );
 
-    expect(screen.getByText(/Refreshing · Updated/)).toBeTruthy();
+    expect(screen.getByText("Refreshing…")).toBeTruthy();
+    expect(screen.queryByText(/Updated/)).toBeNull();
     expect(screen.queryByRole("progressbar")).toBeNull();
   });
 
-  it("shows the last update when cached data is usable offline", async () => {
+  it("reports offline cached-data status without exposing timestamps", async () => {
     const screen = await render(
       <PosCacheStatus
         isOffline
@@ -32,6 +33,7 @@ describe("PosCacheStatus", () => {
       />,
     );
 
-    expect(screen.getByText(/Offline · Updated/)).toBeTruthy();
+    expect(screen.getByText("Offline · saved data unavailable")).toBeTruthy();
+    expect(screen.queryByText(/Updated/)).toBeNull();
   });
 });

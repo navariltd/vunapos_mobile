@@ -214,6 +214,17 @@ describe("PosInvoicesScreen", () => {
   it("starts with the current-shift invoice history and opens a selected invoice", async () => {
     const screen = await renderScreen();
 
+    expect(screen.getByTestId("sales-document-tabs").props.horizontal).toBe(true);
+    const renderedTabs = JSON.stringify(screen.toJSON());
+    expect(renderedTabs.indexOf("Invoices history")).toBeLessThan(
+      renderedTabs.indexOf("Draft invoices"),
+    );
+    expect(renderedTabs.indexOf("Draft invoices")).toBeLessThan(
+      renderedTabs.indexOf("Orders history"),
+    );
+    expect(renderedTabs.indexOf("Orders history")).toBeLessThan(
+      renderedTabs.indexOf("Draft orders"),
+    );
     expect(mockUsePosInvoiceHistory).toHaveBeenLastCalledWith(
       expect.objectContaining({
         filters: expect.objectContaining({
@@ -224,6 +235,12 @@ describe("PosInvoicesScreen", () => {
         start: 0,
       }),
     );
+    expect(screen.getByTestId("sales-history-pagination")).toHaveStyle({
+      bottom: 16,
+      position: "absolute",
+      right: 16,
+    });
+    expect(screen.getByText("Previous").parent).toHaveStyle({ minHeight: 36 });
 
     fireEvent.press(screen.getByLabelText("Open POS-INV-0001"));
 
@@ -233,23 +250,23 @@ describe("PosInvoicesScreen", () => {
     });
   });
 
-  it("changes the history query when switching to sales orders", async () => {
+  it("changes the history query when switching to orders history", async () => {
     const screen = await renderScreen();
 
     expect(
-      screen.getByRole("tab", { name: "Sales history" }).props
+      screen.getByRole("tab", { name: "Invoices history" }).props
         .accessibilityState,
     ).toEqual({
       selected: true,
     });
     expect(
-      screen.getByRole("tab", { name: "Sales orders" }).props
+      screen.getByRole("tab", { name: "Orders history" }).props
         .accessibilityState,
     ).toEqual({
       selected: false,
     });
 
-    fireEvent.press(screen.getByRole("tab", { name: "Sales orders" }));
+    fireEvent.press(screen.getByRole("tab", { name: "Orders history" }));
 
     await waitFor(() =>
       expect(mockUsePosInvoiceHistory).toHaveBeenLastCalledWith(
@@ -260,7 +277,7 @@ describe("PosInvoicesScreen", () => {
       ),
     );
     expect(
-      screen.getByRole("tab", { name: "Sales orders" }).props
+      screen.getByRole("tab", { name: "Orders history" }).props
         .accessibilityState,
     ).toEqual({
       selected: true,
@@ -347,22 +364,22 @@ describe("PosInvoicesScreen", () => {
         }),
       ),
     );
-    expect(screen.getByRole("tab", { name: "Sales history" }).props.accessibilityState).toEqual({
+    expect(screen.getByRole("tab", { name: "Invoices history" }).props.accessibilityState).toEqual({
       selected: true,
     });
     expect(screen.queryByText("2 active filters")).toBeNull();
   });
 
-  it("keeps the Sales orders tab selected when its filters are cleared", async () => {
+  it("keeps the Orders history tab selected when its filters are cleared", async () => {
     const screen = await renderScreen();
 
-    await fireEvent.press(screen.getByRole("tab", { name: "Sales orders" }));
+    await fireEvent.press(screen.getByRole("tab", { name: "Orders history" }));
     await fireEvent.press(screen.getByLabelText("Open invoice filters"));
     await screen.findByLabelText("Clear draft filters");
     await fireEvent.press(screen.getByLabelText("Clear draft filters"));
 
     expect(screen.queryByLabelText("Clear draft filters")).toBeNull();
-    expect(screen.getByRole("tab", { name: "Sales orders" }).props.accessibilityState).toEqual({
+    expect(screen.getByRole("tab", { name: "Orders history" }).props.accessibilityState).toEqual({
       selected: true,
     });
     expect(mockUsePosInvoiceHistory).toHaveBeenLastCalledWith(

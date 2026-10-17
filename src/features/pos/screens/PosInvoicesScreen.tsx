@@ -3,6 +3,7 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   View,
 } from "react-native";
@@ -280,39 +281,46 @@ export function PosInvoicesScreen({
   ].filter(Boolean).length;
 
   const tabs = (
-    <View accessibilityRole="tablist" style={styles.documentTabs}>
-      <DocumentTab
-        active={activeTab === "history" && filters.documentType === "Invoice"}
-        label="Sales history"
-        onPress={() => {
-          setActiveTab("history");
-          updateFilter("documentType", "Invoice");
-        }}
-      />
-      <DocumentTab
-        active={activeTab === "history" && filters.documentType === "Order"}
-        label="Sales orders"
-        onPress={() => {
-          setActiveTab("history");
-          updateFilter("documentType", "Order");
-        }}
-      />
-      <DocumentTab
-        active={
-          activeTab === "history" && filters.documentType === "Draft Order"
-        }
-        label="Draft orders"
-        onPress={() => {
-          setActiveTab("history");
-          updateFilter("documentType", "Draft Order");
-        }}
-      />
-      <DocumentTab
-        active={activeTab === "held"}
-        label="Draft invoices"
-        onPress={() => setActiveTab("held")}
-      />
-    </View>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.documentTabsScroll}
+      testID="sales-document-tabs"
+    >
+      <View accessibilityRole="tablist" style={styles.documentTabs}>
+        <DocumentTab
+          active={activeTab === "history" && filters.documentType === "Invoice"}
+          label="Invoices history"
+          onPress={() => {
+            setActiveTab("history");
+            updateFilter("documentType", "Invoice");
+          }}
+        />
+        <DocumentTab
+          active={activeTab === "held"}
+          label="Draft invoices"
+          onPress={() => setActiveTab("held")}
+        />
+        <DocumentTab
+          active={activeTab === "history" && filters.documentType === "Order"}
+          label="Orders history"
+          onPress={() => {
+            setActiveTab("history");
+            updateFilter("documentType", "Order");
+          }}
+        />
+        <DocumentTab
+          active={
+            activeTab === "history" && filters.documentType === "Draft Order"
+          }
+          label="Draft orders"
+          onPress={() => {
+            setActiveTab("history");
+            updateFilter("documentType", "Draft Order");
+          }}
+        />
+      </View>
+    </ScrollView>
   );
 
   if (activeTab === "held") {
@@ -454,9 +462,9 @@ export function PosInvoicesScreen({
   }
 
   return (
-    <>
+    <View style={styles.historyPage}>
       <FlatList
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, styles.historyContent]}
         data={invoiceRows}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         keyExtractor={(invoice) => invoice.invoiceNumber}
@@ -476,38 +484,12 @@ export function PosInvoicesScreen({
         }
         ListFooterComponent={
           history.data ? (
-            <View>
-              <View style={styles.pagination}>
-                <Pressable
-                  disabled={start === 0}
-                  onPress={() =>
-                    setStart((current) => Math.max(0, current - 25))
-                  }
-                  style={[
-                    styles.paginationButton,
-                    start === 0 && styles.paginationButtonDisabled,
-                  ]}
-                >
-                  <Text style={styles.paginationLabel}>Previous</Text>
-                </Pressable>
-                <Pressable
-                  disabled={!history.data.has_more}
-                  onPress={() => setStart((current) => current + 25)}
-                  style={[
-                    styles.paginationButton,
-                    !history.data.has_more && styles.paginationButtonDisabled,
-                  ]}
-                >
-                  <Text style={styles.paginationLabel}>Next</Text>
-                </Pressable>
-              </View>
-              <PosCacheStatus
-                isOffline={isOffline}
-                isRefreshing={history.isRefreshing}
-                isStale={history.isStale}
-                lastUpdated={history.lastUpdated}
-              />
-            </View>
+            <PosCacheStatus
+              isOffline={isOffline}
+              isRefreshing={history.isRefreshing}
+              isStale={history.isStale}
+              lastUpdated={history.lastUpdated}
+            />
           ) : null
         }
         ListHeaderComponent={
@@ -618,6 +600,30 @@ export function PosInvoicesScreen({
         }
         showsVerticalScrollIndicator={false}
       />
+      {history.data ? (
+        <View style={styles.stickyPagination} testID="sales-history-pagination">
+          <Pressable
+            disabled={start === 0}
+            onPress={() => setStart((current) => Math.max(0, current - 25))}
+            style={[
+              styles.stickyPaginationButton,
+              start === 0 && styles.paginationButtonDisabled,
+            ]}
+          >
+            <Text style={styles.stickyPaginationLabel}>Previous</Text>
+          </Pressable>
+          <Pressable
+            disabled={!history.data.has_more}
+            onPress={() => setStart((current) => current + 25)}
+            style={[
+              styles.stickyPaginationButton,
+              !history.data.has_more && styles.paginationButtonDisabled,
+            ]}
+          >
+            <Text style={styles.stickyPaginationLabel}>Next</Text>
+          </Pressable>
+        </View>
+      ) : null}
       <PosInvoiceFiltersSheet
         filters={draftFilters}
         onApply={applyFilters}
@@ -631,7 +637,7 @@ export function PosInvoicesScreen({
         }
         visible={filterSheetVisible}
       />
-    </>
+    </View>
   );
 }
 
@@ -646,6 +652,7 @@ function createStyles(palette: AppPalette) {
       borderBottomWidth: 1,
       flexDirection: "row",
     },
+    documentTabsScroll: { flexGrow: 0 },
     emptyState: {
       color: palette.onSurfaceMuted,
       fontFamily: typography.fontFamily.regular,
@@ -666,8 +673,11 @@ function createStyles(palette: AppPalette) {
       fontSize: typography.size.small,
       lineHeight: typography.lineHeight.body,
     },
+    historyContent: { paddingBottom: spacing.xxxl * 2 },
+    historyPage: { flex: 1 },
     documentTab: {
       borderBottomWidth: 2,
+      flexShrink: 0,
       paddingHorizontal: spacing.sm,
       paddingVertical: spacing.sm,
     },
@@ -765,26 +775,29 @@ function createStyles(palette: AppPalette) {
     heading: {
       gap: 4,
     },
-    pagination: {
+    stickyPagination: {
+      bottom: spacing.md,
       flexDirection: "row",
-      gap: spacing.sm,
-      justifyContent: "flex-end",
-      paddingTop: spacing.lg,
+      gap: spacing.xs,
+      position: "absolute",
+      right: spacing.md,
     },
-    paginationButton: {
+    stickyPaginationButton: {
+      backgroundColor: palette.surface,
       borderColor: palette.border,
       borderRadius: radii.md,
       borderWidth: 1,
-      paddingHorizontal: spacing.md,
-      paddingVertical: spacing.sm,
+      minHeight: 36,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
     },
     paginationButtonDisabled: {
       opacity: 0.4,
     },
-    paginationLabel: {
+    stickyPaginationLabel: {
       color: palette.onSurface,
       fontFamily: typography.fontFamily.semibold,
-      fontSize: typography.size.small,
+      fontSize: typography.size.tiny,
     },
     refreshingText: {
       color: palette.onSurfaceMuted,

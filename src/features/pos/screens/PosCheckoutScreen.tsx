@@ -1167,6 +1167,10 @@ export function PosCheckoutScreen({
     ? `Saving ${submissionLabel} changes…`
     : `Submitting ${submissionLabel}…`;
   const customerName = saleCustomer?.customerName || "Walk-in customer";
+  // The app shell already owns the device safe-area inset and bottom
+  // navigation. Sales Orders have one action, so do not add a second bottom
+  // safe-area inset below it; keep the action deliberately close to the nav.
+  const CheckoutFooter = isInvoice ? SafeAreaView : View;
 
   if (bootstrap.isLoading || (isInvoice && preview.isLoading && !preview.data)) {
     return (
@@ -1890,9 +1894,12 @@ export function PosCheckoutScreen({
 
       </KeyboardAwareFormScroll>
 
-      <SafeAreaView
-        edges={["bottom"]}
-        style={styles.checkoutFooter}
+      <CheckoutFooter
+        {...(isInvoice ? { edges: ["bottom"] as const } : {})}
+        style={[
+          styles.checkoutFooter,
+          !isInvoice && styles.orderCheckoutFooter,
+        ]}
         testID="checkout-actions"
       >
         {validationError || (checkout.error && !checkout.isRequiredFieldError) ? (
@@ -1901,7 +1908,12 @@ export function PosCheckoutScreen({
           </Text>
         ) : null}
         {holdError ? <Text style={styles.errorText}>{holdError}</Text> : null}
-        <View style={styles.checkoutActions}>
+        <View
+          style={[
+            styles.checkoutActions,
+            !isInvoice && styles.orderCheckoutActions,
+          ]}
+        >
           {onHold && isInvoice ? (
             <Pressable
               accessibilityLabel="Hold checkout"
@@ -1944,6 +1956,7 @@ export function PosCheckoutScreen({
             style={[
               styles.submitButton,
               styles.checkoutSubmitButton,
+              !isInvoice && styles.orderCheckoutSubmitButton,
               !isReadyToSubmit && styles.submitButtonDisabled,
             ]}
           >
@@ -1952,7 +1965,7 @@ export function PosCheckoutScreen({
             </Text>
           </Pressable>
         </View>
-      </SafeAreaView>
+      </CheckoutFooter>
 
       <Modal
         animationType="slide"
@@ -2394,6 +2407,18 @@ function createStyles(palette: AppPalette) {
       paddingHorizontal: spacing.md,
       paddingTop: spacing.sm,
     },
+    orderCheckoutFooter: {
+      // AppShell places the persistent navigation immediately after this
+      // footer. Keep just a visual breathing room while letting the action
+      // read as a floating control rather than a separate card.
+      backgroundColor: "transparent",
+      borderTopWidth: 0,
+      paddingBottom: 10,
+    },
+    orderCheckoutActions: {
+      justifyContent: "center",
+      width: "100%",
+    },
     creditSaleRow: {
       alignItems: "center",
       flexDirection: "row",
@@ -2703,6 +2728,12 @@ function createStyles(palette: AppPalette) {
       paddingHorizontal: spacing.md,
     },
     checkoutSubmitButton: { flex: 1 },
+    orderCheckoutSubmitButton: {
+      // Override the shared invoice action's `flex: 1`; otherwise React
+      // Native retains its zero flex-basis and ignores the percentage width.
+      flex: 0,
+      width: "50%",
+    },
     holdActionButton: {
       alignItems: "center",
       backgroundColor: "#99571f",

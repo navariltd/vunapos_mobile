@@ -57,7 +57,7 @@ The release workflow uses conventional commits and Semantic Release to create Gi
 
 Android builds check the separate Mobile Release Manager after startup and when the app returns to the foreground (at most once every six hours). This is intentionally independent of the customer ERPNext URL. The production defaults live in `src/config/updateConfig.ts`:
 
-- release server: `https://nl-vms.navari.co.ke`
+- release server: `https://nl-vms.frappe.cloud`
 - package identity: the installed Android package, currently `ke.co.navari.vunapos`
 - channel: `Production`
 

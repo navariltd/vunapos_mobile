@@ -14,7 +14,7 @@ export const appUpdateConfig = {
   enabled: process.env.EXPO_PUBLIC_VUNAPOS_UPDATES_ENABLED !== "false",
   serverUrl:
     process.env.EXPO_PUBLIC_VUNAPOS_UPDATE_SERVER_URL ??
-    "https://nl-vms.navari.co.ke",
+    "https://nl-vms.frappe.cloud",
   channel: releaseChannel,
 } as const;
 

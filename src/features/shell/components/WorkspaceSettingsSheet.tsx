@@ -5,6 +5,7 @@ import { Text } from "react-native-paper";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppearancePreference } from "@/services/appearanceStore";
+import { useAppUpdate } from "@/features/appUpdates/AppUpdateProvider";
 import { PosOrderType } from "@/features/pos/types";
 import { useAppearance } from "@/theme/AppearanceProvider";
 import { radii, spacing, typography } from "@/theme/tokens";
@@ -40,6 +41,7 @@ export function WorkspaceSettingsSheet({
   visible,
 }: WorkspaceSettingsSheetProps) {
   const { palette, preference, setPreference } = useAppearance();
+  const { availableRelease, checkForUpdates, installUpdate, status: updateStatus } = useAppUpdate();
   const insets = useSafeAreaInsets();
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
@@ -224,6 +226,31 @@ export function WorkspaceSettingsSheet({
               );
             })}
           </View>
+
+          <Text
+            style={[styles.sectionLabel, { color: palette.onSurfaceMuted }]}
+          >
+            APP UPDATES
+          </Text>
+          <Text style={[styles.localDataCopy, { color: palette.onSurfaceMuted }]}>
+            {availableRelease && updateStatus === "ready"
+              ? `Version ${availableRelease.versionName} is ready to install.`
+              : "Checks use VunaPOS’s release service, not your company server."}
+          </Text>
+          <Pressable
+            accessibilityLabel={availableRelease && updateStatus === "ready" ? "Install app update" : "Check for app updates"}
+            onPress={() => void (availableRelease && updateStatus === "ready" ? installUpdate() : checkForUpdates({ force: true }))}
+            style={[styles.clearDataButton, { borderColor: palette.primary }]}
+          >
+            <MaterialCommunityIcons
+              color={palette.primary}
+              name={availableRelease && updateStatus === "ready" ? "download" : "update"}
+              size={18}
+            />
+            <Text style={[styles.clearDataLabel, { color: palette.primary }]}>
+              {availableRelease && updateStatus === "ready" ? "Install update" : updateStatus === "checking" ? "Checking…" : "Check for updates"}
+            </Text>
+          </Pressable>
 
           <Text
             style={[styles.sectionLabel, { color: palette.onSurfaceMuted }]}

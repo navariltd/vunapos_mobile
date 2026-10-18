@@ -13,7 +13,8 @@
     },
     "android": {
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.vunaposmobile"
+      "package": "ke.co.navari.vunapos",
+      "versionCode": 1
     },
     "web": {
       "output": "static",

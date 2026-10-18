@@ -49,9 +49,33 @@ Optionally install the repository hooks with `pre-commit install`; they run lint
 
 ## Builds and releases
 
-The source tree is an Expo project. It is not a Python package and is not installed with Bench or `bench --site ... install-app`. Before distributing a production build, replace the placeholder Android application ID (`com.anonymous.vunaposmobile`) and configure the definitive iOS bundle identifier, signing credentials, and EAS project/build profiles for the Vuna Technologies accounts.
+The source tree is an Expo project. It is not a Python package and is not installed with Bench or `bench --site ... install-app`. Android releases use the `ke.co.navari.vunapos` application ID. Before distributing a production build, configure the definitive iOS bundle identifier, signing credentials, and EAS project/build profiles for the Vuna Technologies accounts.
 
 The release workflow uses conventional commits and Semantic Release to create GitHub releases from `develop`. If production releases will instead come from `main` or a dedicated release branch, update `.releaserc` and the release workflow together before enabling releases.
+
+### Android direct updates
+
+Android builds check the separate Mobile Release Manager after startup and when the app returns to the foreground (at most once every six hours). This is intentionally independent of the customer ERPNext URL. The production defaults live in `src/config/updateConfig.ts`:
+
+- release server: `https://nl-vms.navari.co.ke`
+- package identity: the installed Android package, currently `ke.co.navari.vunapos`
+- channel: `Production`
+
+Downstream builds may set the non-secret build-time overrides below. They are compiled into the app; there is no user-facing setting that can redirect the trusted update publisher.
+
+```bash
+EXPO_PUBLIC_VUNAPOS_UPDATE_SERVER_URL=https://releases.example.com
+EXPO_PUBLIC_VUNAPOS_UPDATE_CHANNEL=Preview
+EXPO_PUBLIC_VUNAPOS_UPDATES_ENABLED=false
+```
+
+The app calls `GET /api/method/mobile_release_manager.api.releases.check_for_updates` without ERPNext credentials, validates the Frappe `message` response, and only accepts a newer APK served via HTTPS from the configured origin's `/files/` path. Android's DownloadManager stores the APK in VunaPOS's app-specific external-files directory, allowing the transfer to survive an app restart without requesting broad storage access. Before offering installation, VunaPOS validates the download size and SHA-256, parses the archive, checks its package name and version code, and compares the signing identity with the installed application. Android performs the final signature enforcement during installation.
+
+Only a completed, verified update shows the non-blocking **Update ready** sheet. It is suppressed while Checkout is open. **Later** retains the verified APK for a later install from Workspace Settings; it neither redownloads the file nor changes the cart, SQLite cache, outbox, session, or customer ERPNext configuration. **Install Update** opens Android's normal installer. Android may require the user to allow VunaPOS to install unknown apps in system settings (`REQUEST_INSTALL_PACKAGES`); VunaPOS opens that scoped setting and requires the user to retry after approval. It never silently installs an APK.
+
+For a real local upgrade test, build version code `100`, install it, then build and publish version code `101` with the **same release signing certificate** through Mobile Release Manager. Configure the development build with a reachable HTTPS test release URL, then confirm the background download, checksum verification, Later behavior, installer, and retained local data. The server must be deployed with its `mobile_release_manager` app and must publish the APK before any build can discover it.
+
+Current local Android release builds are debug-signed by the generated native project. That is suitable only for development: a production release pipeline must configure and protect a persistent VunaPOS release keystore, increment `android.versionCode` for every APK, and use the same key for every in-place update. Changing the package ID or signing key prevents Android from upgrading existing installations.
 
 ## Repository layout
 

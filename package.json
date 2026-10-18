@@ -6,6 +6,7 @@
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-community/datetimepicker": "9.1.0",
+    "@vunapos/updater": "file:modules/vunapos-updater",
     "expo": "~57.0.18",
     "expo-camera": "~57.0.5",
     "expo-constants": "~57.0.16",

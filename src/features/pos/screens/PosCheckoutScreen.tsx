@@ -24,6 +24,7 @@ import { useGatewayPayment } from "@/features/pos/hooks/useGatewayPayment";
 import { useGatewayPaymentRealtime } from "@/features/pos/hooks/useGatewayPaymentRealtime";
 import { KeyboardAwareFormScroll } from "@/components/layout/KeyboardAwareFormScroll";
 import { useToast } from "@/components/feedback/ToastProvider";
+import { useAppUpdateInstallSafety } from "@/features/appUpdates/AppUpdateProvider";
 import {
   usePosCheckoutPreview,
   useSubmitPosCheckout,
@@ -181,6 +182,9 @@ export function PosCheckoutScreen({
   transactionReady,
   sessionVerificationKey,
 }: PosCheckoutScreenProps) {
+  // A verified APK can wait; never offer or launch installation while the
+  // cashier is reviewing or submitting a checkout.
+  useAppUpdateInstallSafety(true);
   const { palette } = useAppearance();
   const toast = useToast();
   const styles = createStyles(palette);

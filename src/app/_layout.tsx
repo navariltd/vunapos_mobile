@@ -14,6 +14,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppLaunchScreen } from "@/components/splash/AppLaunchScreen";
 import { LaunchReadyContext } from "@/components/splash/LaunchReadiness";
 import { ToastProvider } from "@/components/feedback/ToastProvider";
+import { AppUpdateProvider } from "@/features/appUpdates/AppUpdateProvider";
+import { AppUpdateSheet } from "@/features/appUpdates/AppUpdateSheet";
 import {
   AppSessionProvider,
   useAppSession,
@@ -80,32 +82,35 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   const canRoute = fontsLoaded && !isBootstrapping && isAppearanceReady;
 
   return (
-    <LaunchReadyContext.Provider value={finishInitialLaunch}>
-      <View style={styles.root}>
-        {canRoute ? (
-          <PosBootstrapSnapshotBoundary
-            authState={authState}
-            initialFallback={launchVisible ? null : undefined}
-            onSignOut={signOut}
-            value={posBootstrap}
-          >
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(auth)" />
-              <Stack.Screen name="(app)" />
-            </Stack>
-          </PosBootstrapSnapshotBoundary>
-        ) : null}
-        {launchVisible ? (
-          <View style={StyleSheet.absoluteFill}>
-            <AppLaunchScreen
-              message="Preparing your workspace…"
-              onReady={hideNativeSplash}
-            />
-          </View>
-        ) : null}
-      </View>
-    </LaunchReadyContext.Provider>
+    <AppUpdateProvider enabled={canRoute}>
+      <LaunchReadyContext.Provider value={finishInitialLaunch}>
+        <View style={styles.root}>
+          {canRoute ? (
+            <PosBootstrapSnapshotBoundary
+              authState={authState}
+              initialFallback={launchVisible ? null : undefined}
+              onSignOut={signOut}
+              value={posBootstrap}
+            >
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(app)" />
+              </Stack>
+            </PosBootstrapSnapshotBoundary>
+          ) : null}
+          {launchVisible ? (
+            <View style={StyleSheet.absoluteFill}>
+              <AppLaunchScreen
+                message="Preparing your workspace…"
+                onReady={hideNativeSplash}
+              />
+            </View>
+          ) : null}
+        </View>
+        <AppUpdateSheet />
+      </LaunchReadyContext.Provider>
+    </AppUpdateProvider>
   );
 }
 

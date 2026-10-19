@@ -97,7 +97,7 @@ Encode an existing keystore as one line before adding `ANDROID_KEYSTORE_BASE64`;
 base64 < /secure/path/vunapos-release.jks | tr -d '\n'
 ```
 
-`Android Release Candidate` runs automatically for a push to protected `main` only when `app.json` changes, or manually from GitHub Actions. It does not publish the release-manager record: an authorized publisher reviews the Draft and publishes it separately.
+`Android Release Candidate` runs automatically for a push to protected `main` only when `app.json` changes, or manually from GitHub Actions. This intentional version-file filter prevents a code-only push from attempting to upload a different APK under an unchanged Android `versionCode`. It does not publish the release-manager record: an authorized publisher reviews the Draft and publishes it separately.
 
 `app.json` is the authoritative Android version source. Before a new production candidate, deliberately increase both:
 

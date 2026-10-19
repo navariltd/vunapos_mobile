@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, within } from "@testing-library/react-native";
-import { StyleSheet } from "react-native";
+import { act, cleanup, fireEvent, render, within } from "@testing-library/react-native";
+import { Keyboard, StyleSheet } from "react-native";
 
 const mockDismissCartCustomerOptions = jest.fn();
 
@@ -103,10 +103,20 @@ const onUpdateQuantity = jest.fn();
 const onUpdateSerialAllocations = jest.fn();
 const mockUsePosCustomerLoyalty = jest.mocked(usePosCustomerLoyalty);
 const mockUsePosItemBatches = jest.mocked(usePosItemBatches);
+let keyboardDidHideListener: (() => void) | undefined;
+let mockKeyboardAddListener: jest.SpyInstance;
 
 describe("PosCartScreen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    keyboardDidHideListener = undefined;
+    mockKeyboardAddListener = jest.spyOn(Keyboard, "addListener");
+    mockKeyboardAddListener.mockImplementation(
+      ((eventName: string, listener: () => void) => {
+        if (eventName === "keyboardDidHide") keyboardDidHideListener = listener;
+        return { remove: jest.fn() };
+      }) as unknown as typeof Keyboard.addListener,
+    );
     mockUsePosCustomerLoyalty.mockReturnValue({
       data: null,
       error: null,
@@ -137,6 +147,117 @@ describe("PosCartScreen", () => {
 
   afterEach(async () => {
     await cleanup();
+    mockKeyboardAddListener.mockRestore();
+  });
+
+  async function settleInitialQuantitySync() {
+    await act(async () => {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  async function emitKeyboardDidHide() {
+    expect(keyboardDidHideListener).toEqual(expect.any(Function));
+    await act(async () => {
+      keyboardDidHideListener?.();
+    });
+  }
+
+  it("commits an edited quantity when Android hides a still-focused keyboard", async () => {
+    const screen = await render(
+      <PosCartScreen
+        allowCustomerCreation={false}
+        currency="KES"
+        error={null}
+        isUpdating={false}
+        items={[
+          {
+            allow_negative_stock: false,
+            available_qty: 10,
+            is_stock_item: true,
+            item_code: "ITEM-001",
+            item_name: "Stock item",
+            qty: 2,
+            rate: 125,
+            uom: "Nos",
+          },
+        ]}
+        onBack={onBack}
+        onCheckout={onCheckout}
+        onClear={onClear}
+        onRemove={onRemove}
+        onRetry={onRetry}
+        onSelectSaleCustomer={onSelectSaleCustomer}
+        onUpdateQuantity={onUpdateQuantity}
+        orderType="Invoice"
+        requiresCustomer={false}
+        saleCustomer={null}
+        subtotal={250}
+        taxes={[]}
+        totals={{ grand_total: 250, net_total: 250 }}
+      />,
+    );
+    const quantityInput = screen.getByLabelText("Quantity for Stock item");
+
+    await settleInitialQuantitySync();
+    await fireEvent(quantityInput, "focus");
+    await fireEvent.changeText(quantityInput, "3.5");
+
+    expect(mockKeyboardAddListener).toHaveBeenCalledWith(
+      "keyboardDidHide",
+      expect.any(Function),
+    );
+    await emitKeyboardDidHide();
+
+    expect(onUpdateQuantity).toHaveBeenCalledTimes(1);
+    expect(onUpdateQuantity).toHaveBeenCalledWith("ITEM-001", 3.5);
+  });
+
+  it("does not submit the same typed quantity twice when keyboard dismissal is followed by blur", async () => {
+    const screen = await render(
+      <PosCartScreen
+        allowCustomerCreation={false}
+        currency="KES"
+        error={null}
+        isUpdating={false}
+        items={[
+          {
+            allow_negative_stock: false,
+            available_qty: 10,
+            is_stock_item: true,
+            item_code: "ITEM-001",
+            item_name: "Stock item",
+            qty: 2,
+            rate: 125,
+            uom: "Nos",
+          },
+        ]}
+        onBack={onBack}
+        onCheckout={onCheckout}
+        onClear={onClear}
+        onRemove={onRemove}
+        onRetry={onRetry}
+        onSelectSaleCustomer={onSelectSaleCustomer}
+        onUpdateQuantity={onUpdateQuantity}
+        orderType="Invoice"
+        requiresCustomer={false}
+        saleCustomer={null}
+        subtotal={250}
+        taxes={[]}
+        totals={{ grand_total: 250, net_total: 250 }}
+      />,
+    );
+    const quantityInput = screen.getByLabelText("Quantity for Stock item");
+
+    await settleInitialQuantitySync();
+    await fireEvent(quantityInput, "focus");
+    await fireEvent.changeText(quantityInput, "3.5");
+    await emitKeyboardDidHide();
+    await fireEvent(quantityInput, "blur");
+    await fireEvent(quantityInput, "submitEditing");
+
+    expect(onUpdateQuantity).toHaveBeenCalledTimes(1);
+    expect(onUpdateQuantity).toHaveBeenCalledWith("ITEM-001", 3.5);
   });
 
   it("shows editable cart lines, totals, and item removal controls", async () => {

@@ -9,6 +9,7 @@ test("release Gradle configuration runs before variant configuration", () => {
   assert.doesNotMatch(block, /afterEvaluate/);
   assert.match(block, /android\.defaultConfig\.versionCode = vunaposReleaseVersionCode/);
   assert.match(block, /android\.defaultConfig\.versionName = vunaposReleaseVersionName/);
+  assert.match(block, /abiFilters 'arm64-v8a'/);
   assert.match(block, /android\.buildTypes\.getByName\('release'\)\.signingConfig = vunaposReleaseSigning/);
 });
 

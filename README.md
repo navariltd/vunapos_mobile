@@ -99,12 +99,16 @@ base64 < /secure/path/vunapos-release.jks | tr -d '\n'
 
 `Android Release Candidate` runs automatically for **every push to protected `main`**, including styling and ordinary application-code changes, or manually from GitHub Actions. It does not publish the release-manager record: an authorized publisher reviews the Draft and publishes it separately.
 
-`app.json` supplies the human-readable base version and a minimum Android version code:
+`app.json` supplies the human-readable base version and Android version-code base:
 
 - `expo.version` (for example, `1.0.0`); and
-- `expo.android.versionCode` (a positive lower bound).
+- `expo.android.versionCode` (a positive base for the deterministic CI code).
 
-For each protected-main build, CI derives a deterministic Android version code from the complete `main` Git history and the latest Published release on Mobile Release Manager. It uses the greater of the configured minimum, the commit count, and `latest_published + 1`. The generated version name is the base version plus that code, for example `1.0.0+142`. This allows every merge—including a styling-only merge—to produce a distinct installable APK without relying on GitHub run numbers. The workflow extracts both generated values from the APK and requires an exact match. Mobile Release Manager rejects conflicting artifacts reusing an identity; an identical retry remains idempotent.
+For each protected-main build, CI derives one deterministic Android version code from the complete `main` Git history: `expo.android.versionCode + commit_count - 1`. The generated version name is the base version plus that code, for example `1.0.0+142`. This allows every merge—including a styling-only merge—to produce a distinct installable APK without relying on GitHub run numbers. CI rejects a code that is not newer than the latest Published release, which means an exceptional manually published higher code requires deliberately increasing `expo.android.versionCode` to establish a new base.
+
+Draft releases are intentionally not included in version selection. A retry of the same unmerged `main` commit has the same identity and is accepted only when its APK bytes are identical; Mobile Release Manager rejects a conflicting artifact rather than silently allocating another production version. A later `main` commit always has a greater commit count and therefore a distinct identity.
+
+Production APKs are ARM64-only (`arm64-v8a`) to avoid shipping x86/x86_64 and 32-bit ARM native libraries. This substantially reduces download size, but those APKs cannot be installed on the x86_64 Android emulator; use a debug/emulator build for emulator development.
 
 For a local upload after independently building and verifying a signed APK:
 

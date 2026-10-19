@@ -1,0 +1,213 @@
+name: Android Release Candidate
+
+on:
+  # develop is currently the repository's only remote branch. Protect it in
+  # GitHub; every candidate must include an explicit app.json version bump.
+  push:
+    branches: [develop]
+    paths:
+      - app.json
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: Optional release notes for this Draft candidate
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-release-production
+  cancel-in-progress: false
+
+jobs:
+  build-sign-verify-upload:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+    env:
+      FRAPPE_URL: ${{ vars.FRAPPE_URL || secrets.FRAPPE_URL }}
+      FRAPPE_API_KEY: ${{ secrets.FRAPPE_API_KEY }}
+      FRAPPE_API_SECRET: ${{ secrets.FRAPPE_API_SECRET }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+
+    steps:
+      - name: Check out trusted release source
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          check-latest: true
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Android SDK dependencies
+        run: |
+          sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Run release quality checks
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+          node --test scripts/__tests__/publish-android-release.test.mjs
+
+      - name: Read authoritative Android version
+        id: version
+        run: |
+          node <<'NODE'
+          const { readFileSync, appendFileSync } = require('node:fs');
+          const expo = JSON.parse(readFileSync('app.json', 'utf8')).expo;
+          const versionName = expo?.version;
+          const versionCode = expo?.android?.versionCode;
+          if (typeof versionName !== 'string' || !versionName.trim() || !/^[0-9A-Za-z.+_-]+$/.test(versionName)) {
+            throw new Error('app.json expo.version must be a non-empty safe Android version name.');
+          }
+          if (!Number.isSafeInteger(versionCode) || versionCode <= 0) {
+            throw new Error('app.json expo.android.versionCode must be a positive integer.');
+          }
+          appendFileSync(process.env.GITHUB_OUTPUT, `name=${versionName}\ncode=${versionCode}\n`);
+          NODE
+
+      - name: Restore protected Android signing key
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ANDROID_KEY_ALIAS"
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_KEY_PASSWORD"
+          KEYSTORE="$RUNNER_TEMP/vunapos-release.jks"
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          test -s "$KEYSTORE"
+          echo "VUNAPOS_RELEASE_STORE_FILE=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "VUNAPOS_RELEASE_STORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "VUNAPOS_RELEASE_KEY_ALIAS=$ANDROID_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "VUNAPOS_RELEASE_KEY_PASSWORD=$ANDROID_KEY_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Generate and prepare Android project
+        run: |
+          npx expo prebuild --platform android --no-install --non-interactive
+          node scripts/prepare-android-release.mjs
+
+      - name: Build signed production APK
+        run: |
+          cd android
+          ./gradlew :app:assembleRelease \
+            -PVUNAPOS_VERSION_NAME="${{ steps.version.outputs.name }}" \
+            -PVUNAPOS_VERSION_CODE="${{ steps.version.outputs.code }}"
+
+      - name: Verify APK and extract actual metadata
+        id: apk
+        env:
+          EXPECTED_VERSION_CODE: ${{ steps.version.outputs.code }}
+          EXPECTED_VERSION_NAME: ${{ steps.version.outputs.name }}
+        run: |
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          BUILD_TOOLS="$(find "${ANDROID_HOME:?}/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)"
+          AAPT="$BUILD_TOOLS/aapt"
+          APKSIGNER="$BUILD_TOOLS/apksigner"
+          test -x "$AAPT"
+          test -x "$APKSIGNER"
+          BADGING="$($AAPT dump badging "$APK")"
+          PACKAGE_ID="$(printf '%s\n' "$BADGING" | sed -n "s/^package: name='\([^']*\)'.*/\1/p")"
+          VERSION_CODE="$(printf '%s\n' "$BADGING" | sed -n "s/.*versionCode='\([^']*\)'.*/\1/p")"
+          VERSION_NAME="$(printf '%s\n' "$BADGING" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")"
+          test "$PACKAGE_ID" = "ke.co.navari.vunapos"
+          test "$VERSION_CODE" = "$EXPECTED_VERSION_CODE"
+          test "$VERSION_NAME" = "$EXPECTED_VERSION_NAME"
+          APKSIGNER_OUTPUT="$($APKSIGNER verify --verbose --print-certs "$APK")"
+          printf '%s\n' "$APKSIGNER_OUTPUT" | grep -Eq "Verified using v[123] scheme.*: true"
+          if printf '%s\n' "$APKSIGNER_OUTPUT" | grep -qi "CN=Android Debug"; then
+            echo "The APK is signed with the Android debug certificate." >&2
+            exit 1
+          fi
+          APK_CERTIFICATE_SHA256="$(printf '%s\n' "$APKSIGNER_OUTPUT" | sed -n "s/.*certificate SHA-256 digest: \([0-9A-Fa-f:]*\).*/\1/p" | head -n 1 | tr -d ':')"
+          KEY_CERTIFICATE_SHA256="$(keytool -list -v -keystore "$VUNAPOS_RELEASE_STORE_FILE" -storepass "$VUNAPOS_RELEASE_STORE_PASSWORD" -alias "$VUNAPOS_RELEASE_KEY_ALIAS" -keypass "$VUNAPOS_RELEASE_KEY_PASSWORD" | sed -n 's/.*SHA256: \([0-9A-Fa-f:]*\).*/\1/p' | head -n 1 | tr -d ':')"
+          test -n "$APK_CERTIFICATE_SHA256"
+          test "${APK_CERTIFICATE_SHA256,,}" = "${KEY_CERTIFICATE_SHA256,,}"
+          SHA256="$(sha256sum "$APK" | awk '{print $1}')"
+          FILE_SIZE="$(wc -c < "$APK" | tr -d ' ')"
+          FINAL_APK="vunapos-${VERSION_NAME}-${VERSION_CODE}.apk"
+          cp "$APK" "$FINAL_APK"
+          echo "path=$FINAL_APK" >> "$GITHUB_OUTPUT"
+          echo "package_id=$PACKAGE_ID" >> "$GITHUB_OUTPUT"
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "certificate_sha256=${APK_CERTIFICATE_SHA256,,}" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "file_size=$FILE_SIZE" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Draft to Mobile Release Manager
+        id: upload
+        env:
+          APK_PATH: ${{ steps.apk.outputs.path }}
+          APK_SHA256: ${{ steps.apk.outputs.sha256 }}
+          APK_FILE_SIZE: ${{ steps.apk.outputs.file_size }}
+          VERSION_NAME: ${{ steps.apk.outputs.version_name }}
+          VERSION_CODE: ${{ steps.apk.outputs.version_code }}
+          RELEASE_NOTES: ${{ inputs.release_notes || format('Automated candidate from {0}', github.sha) }}
+        run: |
+          FRAPPE_URL="${FRAPPE_URL%/}"
+          test "$FRAPPE_URL" = "https://nl-vms.frappe.cloud"
+          node scripts/publish-android-release.mjs \
+            --apk "$APK_PATH" \
+            --application-id ke.co.navari.vunapos \
+            --version-name "$VERSION_NAME" \
+            --version-code "$VERSION_CODE" \
+            --release-channel Production \
+            --release-notes "$RELEASE_NOTES" \
+            --git-commit-sha "$GITHUB_SHA" \
+            --github-run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --expected-sha256 "$APK_SHA256" \
+            --expected-file-size "$APK_FILE_SIZE" | tee upload-result.json
+
+      - name: Report verified Draft candidate
+        env:
+          APK_PATH: ${{ steps.apk.outputs.path }}
+          PACKAGE_ID: ${{ steps.apk.outputs.package_id }}
+          VERSION_NAME: ${{ steps.apk.outputs.version_name }}
+          VERSION_CODE: ${{ steps.apk.outputs.version_code }}
+          CERTIFICATE_SHA256: ${{ steps.apk.outputs.certificate_sha256 }}
+          SHA256: ${{ steps.apk.outputs.sha256 }}
+          FILE_SIZE: ${{ steps.apk.outputs.file_size }}
+        run: |
+          {
+            echo "## Android Draft candidate"
+            echo
+            echo "- APK: \`$APK_PATH\`"
+            echo "- Package: \`$PACKAGE_ID\`"
+            echo "- Version: \`$VERSION_NAME\` (code \`$VERSION_CODE\`)"
+            echo "- Signing certificate SHA-256: \`$CERTIFICATE_SHA256\`"
+            echo "- APK SHA-256: \`$SHA256\`"
+            echo "- Size: \`$FILE_SIZE\` bytes"
+            echo "- Frappe response: \`$(cat upload-result.json)\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload verified APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vunapos-${{ steps.apk.outputs.version_name }}-${{ steps.apk.outputs.version_code }}
+          path: |
+            ${{ steps.apk.outputs.path }}
+            upload-result.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove temporary signing file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/vunapos-release.jks"

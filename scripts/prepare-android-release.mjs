@@ -28,6 +28,12 @@ if (vunaposReleaseTaskRequested && !vunaposHasReleaseSigning) {
 // configuring variants, and Gradle 9 rejects mutations made afterwards.
 android.defaultConfig.versionCode = vunaposReleaseVersionCode
 android.defaultConfig.versionName = vunaposReleaseVersionName
+android.defaultConfig.ndk {
+    // Production VunaPOS is distributed to physical ARM64 Android devices.
+    // The CI workflow separately passes this to React Native so it does not
+    // compile x86/x86_64 libraries only to discard them from the APK.
+    abiFilters 'arm64-v8a'
+}
 def vunaposReleaseSigning = android.signingConfigs.maybeCreate('release')
 vunaposReleaseSigning.storeFile = file(vunaposReleaseStoreFile ?: 'missing-release-keystore')
 vunaposReleaseSigning.storePassword = vunaposReleaseStorePassword

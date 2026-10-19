@@ -53,6 +53,14 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # Restores Gradle distributions, dependency artifacts, and reusable task
+      # outputs. Gradle still invalidates native work when its real inputs
+      # change; this never reuses an APK from unrelated source.
+      - name: Set up Gradle caching
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          cache-provider: basic
+
       # Installs Android command-line tools and adds sdkmanager to PATH. Pin
       # the action so runner-image changes cannot silently replace our SDK
       # bootstrap code.
@@ -127,7 +135,16 @@ jobs:
             throw new Error('Could not derive a positive build number from main history.');
           }
 
-          const versionCode = Math.max(minimumVersionCode, commitCount, latestPublishedCode + 1);
+          // Each protected-main commit has one stable identity. This makes a
+          // retry of an unpublished Draft idempotent; a changed APK under the
+          // same identity is correctly rejected by Mobile Release Manager.
+          const versionCode = minimumVersionCode + commitCount - 1;
+          if (versionCode <= latestPublishedCode) {
+            throw new Error(
+              `The deterministic version code ${versionCode} is not newer than published code ${latestPublishedCode}. ` +
+              'Increase expo.android.versionCode to establish a new version-code base.'
+            );
+          }
           const versionName = `${baseVersionName}+${versionCode}`;
           console.log(`Android release version: ${versionName} (code ${versionCode}; main commits ${commitCount}; latest published ${latestPublishedCode})`);
           appendFileSync(process.env.GITHUB_OUTPUT, `name=${versionName}\ncode=${versionCode}\n`);
@@ -161,8 +178,10 @@ jobs:
         run: |
           cd android
           ./gradlew :app:assembleRelease \
+            -PreactNativeArchitectures=arm64-v8a \
             -PVUNAPOS_VERSION_NAME="${{ steps.version.outputs.name }}" \
-            -PVUNAPOS_VERSION_CODE="${{ steps.version.outputs.code }}"
+            -PVUNAPOS_VERSION_CODE="${{ steps.version.outputs.code }}" \
+            --build-cache
 
       - name: Verify APK and extract actual metadata
         id: apk
@@ -184,6 +203,8 @@ jobs:
           test "$PACKAGE_ID" = "ke.co.navari.vunapos"
           test "$VERSION_CODE" = "$EXPECTED_VERSION_CODE"
           test "$VERSION_NAME" = "$EXPECTED_VERSION_NAME"
+          APK_ABIS="$(unzip -Z1 "$APK" 'lib/*/*.so' | sed -n 's#^lib/\([^/]*\)/.*#\1#p' | sort -u | tr '\n' ',' | sed 's/,$//')"
+          test "$APK_ABIS" = "arm64-v8a"
           APKSIGNER_OUTPUT="$($APKSIGNER verify --verbose --print-certs "$APK")"
           printf '%s\n' "$APKSIGNER_OUTPUT" | grep -Eq "Verified using v[123] scheme.*: true"
           if printf '%s\n' "$APKSIGNER_OUTPUT" | grep -qi "CN=Android Debug"; then
@@ -202,6 +223,7 @@ jobs:
           echo "package_id=$PACKAGE_ID" >> "$GITHUB_OUTPUT"
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "abis=$APK_ABIS" >> "$GITHUB_OUTPUT"
           echo "certificate_sha256=${APK_CERTIFICATE_SHA256,,}" >> "$GITHUB_OUTPUT"
           echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
           echo "file_size=$FILE_SIZE" >> "$GITHUB_OUTPUT"
@@ -214,6 +236,7 @@ jobs:
           APK_FILE_SIZE: ${{ steps.apk.outputs.file_size }}
           VERSION_NAME: ${{ steps.apk.outputs.version_name }}
           VERSION_CODE: ${{ steps.apk.outputs.version_code }}
+          ABIS: ${{ steps.apk.outputs.abis }}
           RELEASE_NOTES: ${{ inputs.release_notes || format('Automated candidate from {0}', github.sha) }}
         run: |
           FRAPPE_URL="${FRAPPE_URL%/}"
@@ -246,6 +269,7 @@ jobs:
             echo "- APK: \`$APK_PATH\`"
             echo "- Package: \`$PACKAGE_ID\`"
             echo "- Version: \`$VERSION_NAME\` (code \`$VERSION_CODE\`)"
+            echo "- Architectures: \`$ABIS\`"
             echo "- Signing certificate SHA-256: \`$CERTIFICATE_SHA256\`"
             echo "- APK SHA-256: \`$SHA256\`"
             echo "- Size: \`$FILE_SIZE\` bytes"

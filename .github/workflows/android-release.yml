@@ -1,12 +1,10 @@
 name: Android Release Candidate
 
 on:
-  # Protect main in GitHub; every candidate must include an explicit app.json
-  # version bump.
+  # Every protected-main merge is a native release candidate, including
+  # styling and other JavaScript changes bundled into the APK.
   push:
     branches: [main]
-    paths:
-      - app.json
   workflow_dispatch:
     inputs:
       release_notes:
@@ -38,6 +36,9 @@ jobs:
     steps:
       - name: Check out trusted release source
         uses: actions/checkout@v6
+        with:
+          # The Android build code is based on protected-main history.
+          fetch-depth: 0
 
       - name: Set up Node
         uses: actions/setup-node@v6
@@ -72,21 +73,68 @@ jobs:
           npm test
           node --test scripts/__tests__/publish-android-release.test.mjs
 
-      - name: Read authoritative Android version
+      - name: Derive monotonic Android release version
         id: version
         run: |
           node <<'NODE'
+          (async () => {
           const { readFileSync, appendFileSync } = require('node:fs');
+          const { execFileSync } = require('node:child_process');
+
           const expo = JSON.parse(readFileSync('app.json', 'utf8')).expo;
-          const versionName = expo?.version;
-          const versionCode = expo?.android?.versionCode;
-          if (typeof versionName !== 'string' || !versionName.trim() || !/^[0-9A-Za-z.+_-]+$/.test(versionName)) {
+          const baseVersionName = expo?.version;
+          const minimumVersionCode = expo?.android?.versionCode;
+          if (typeof baseVersionName !== 'string' || !baseVersionName.trim() || !/^[0-9A-Za-z.+_-]+$/.test(baseVersionName)) {
             throw new Error('app.json expo.version must be a non-empty safe Android version name.');
           }
-          if (!Number.isSafeInteger(versionCode) || versionCode <= 0) {
+          if (!Number.isSafeInteger(minimumVersionCode) || minimumVersionCode <= 0) {
             throw new Error('app.json expo.android.versionCode must be a positive integer.');
           }
+
+          const releaseServer = String(process.env.FRAPPE_URL || '').replace(/\/$/, '');
+          if (releaseServer !== 'https://nl-vms.frappe.cloud') {
+            throw new Error('FRAPPE_URL must be https://nl-vms.frappe.cloud for a production candidate.');
+          }
+
+          const requestUrl = new URL('/api/method/mobile_release_manager.api.releases.check_for_updates', releaseServer);
+          requestUrl.search = new URLSearchParams({
+            application_id: 'ke.co.navari.vunapos',
+            platform: 'Android',
+            version_code: '0',
+            channel: 'Production',
+          }).toString();
+
+          const response = await fetch(requestUrl, {
+            headers: { Accept: 'application/json' },
+            signal: AbortSignal.timeout(15_000),
+          });
+          if (!response.ok) {
+            throw new Error(`Unable to read the latest published release (HTTP ${response.status}).`);
+          }
+          const message = (await response.json())?.message;
+          let latestPublishedCode = 0;
+          if (message?.update_available === true) {
+            if (!Number.isSafeInteger(message.version_code) || message.version_code <= 0) {
+              throw new Error('Release server returned an invalid published version code.');
+            }
+            latestPublishedCode = message.version_code;
+          } else if (message?.update_available !== false) {
+            throw new Error('Release server returned an invalid update-check response.');
+          }
+
+          const commitCount = Number(execFileSync('git', ['rev-list', '--count', 'HEAD'], { encoding: 'utf8' }).trim());
+          if (!Number.isSafeInteger(commitCount) || commitCount <= 0) {
+            throw new Error('Could not derive a positive build number from main history.');
+          }
+
+          const versionCode = Math.max(minimumVersionCode, commitCount, latestPublishedCode + 1);
+          const versionName = `${baseVersionName}+${versionCode}`;
+          console.log(`Android release version: ${versionName} (code ${versionCode}; main commits ${commitCount}; latest published ${latestPublishedCode})`);
           appendFileSync(process.env.GITHUB_OUTPUT, `name=${versionName}\ncode=${versionCode}\n`);
+          })().catch((error) => {
+            console.error(error instanceof Error ? error.message : error);
+            process.exitCode = 1;
+          });
           NODE
 
       - name: Restore protected Android signing key

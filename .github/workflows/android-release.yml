@@ -71,7 +71,7 @@ jobs:
           npm run typecheck
           npm run lint
           npm test
-          node --test scripts/__tests__/publish-android-release.test.mjs
+          node --test scripts/__tests__/*.test.mjs
 
       - name: Derive monotonic Android release version
         id: version

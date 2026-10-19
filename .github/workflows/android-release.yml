@@ -1,10 +1,10 @@
 name: Android Release Candidate
 
 on:
-  # develop is currently the repository's only remote branch. Protect it in
-  # GitHub; every candidate must include an explicit app.json version bump.
+  # Protect main in GitHub; every candidate must include an explicit app.json
+  # version bump.
   push:
-    branches: [develop]
+    branches: [main]
     paths:
       - app.json
   workflow_dispatch:

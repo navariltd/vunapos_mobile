@@ -51,7 +51,7 @@ Optionally install the repository hooks with `pre-commit install`; they run lint
 
 The source tree is an Expo project. It is not a Python package and is not installed with Bench or `bench --site ... install-app`. Android releases use the `ke.co.navari.vunapos` application ID. Before distributing a production build, configure the definitive iOS bundle identifier, signing credentials, and EAS project/build profiles for the Vuna Technologies accounts.
 
-The release workflow uses conventional commits and Semantic Release to create GitHub releases from `develop`, the only current remote branch. Protect that branch before treating it as a production release branch. If releases move to another branch, update `.releaserc`, `.github/workflows/release.yml`, and `.github/workflows/android-release.yml` together.
+The release workflow uses conventional commits and Semantic Release to create GitHub releases from protected `main`. The signed Android candidate workflow also runs only from `main` when the app version changes. Keep `.releaserc`, `.github/workflows/release.yml`, and `.github/workflows/android-release.yml` aligned if this release branch changes.
 
 ### Android direct updates
 
@@ -97,7 +97,7 @@ Encode an existing keystore as one line before adding `ANDROID_KEYSTORE_BASE64`;
 base64 < /secure/path/vunapos-release.jks | tr -d '\n'
 ```
 
-`Android Release Candidate` runs automatically for a push to protected `develop` only when `app.json` changes, or manually from GitHub Actions. It does not publish the release-manager record: an authorized publisher reviews the Draft and publishes it separately.
+`Android Release Candidate` runs automatically for a push to protected `main` only when `app.json` changes, or manually from GitHub Actions. It does not publish the release-manager record: an authorized publisher reviews the Draft and publishes it separately.
 
 `app.json` is the authoritative Android version source. Before a new production candidate, deliberately increase both:
 

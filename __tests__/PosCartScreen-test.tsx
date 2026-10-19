@@ -150,6 +150,19 @@ describe("PosCartScreen", () => {
     mockKeyboardAddListener.mockRestore();
   });
 
+  async function settleInitialQuantitySync() {
+    await act(async () => {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
+  }
+
+  async function emitKeyboardDidHide() {
+    expect(keyboardDidHideListener).toEqual(expect.any(Function));
+    await act(async () => {
+      keyboardDidHideListener?.();
+    });
+  }
+
   it("commits an edited quantity when Android hides a still-focused keyboard", async () => {
     const screen = await render(
       <PosCartScreen
@@ -186,6 +199,7 @@ describe("PosCartScreen", () => {
     );
     const quantityInput = screen.getByLabelText("Quantity for Stock item");
 
+    await settleInitialQuantitySync();
     await fireEvent(quantityInput, "focus");
     await fireEvent.changeText(quantityInput, "3.5");
 
@@ -193,11 +207,7 @@ describe("PosCartScreen", () => {
       "keyboardDidHide",
       expect.any(Function),
     );
-    expect(keyboardDidHideListener).toBeDefined();
-
-    await act(async () => {
-      keyboardDidHideListener?.();
-    });
+    await emitKeyboardDidHide();
 
     expect(onUpdateQuantity).toHaveBeenCalledTimes(1);
     expect(onUpdateQuantity).toHaveBeenCalledWith("ITEM-001", 3.5);
@@ -239,11 +249,10 @@ describe("PosCartScreen", () => {
     );
     const quantityInput = screen.getByLabelText("Quantity for Stock item");
 
+    await settleInitialQuantitySync();
     await fireEvent(quantityInput, "focus");
     await fireEvent.changeText(quantityInput, "3.5");
-    await act(async () => {
-      keyboardDidHideListener?.();
-    });
+    await emitKeyboardDidHide();
     await fireEvent(quantityInput, "blur");
     await fireEvent(quantityInput, "submitEditing");
 

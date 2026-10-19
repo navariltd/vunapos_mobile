@@ -97,14 +97,14 @@ Encode an existing keystore as one line before adding `ANDROID_KEYSTORE_BASE64`;
 base64 < /secure/path/vunapos-release.jks | tr -d '\n'
 ```
 
-`Android Release Candidate` runs automatically for a push to protected `main` only when `app.json` changes, or manually from GitHub Actions. It does not publish the release-manager record: an authorized publisher reviews the Draft and publishes it separately.
+`Android Release Candidate` runs automatically for **every push to protected `main`**, including styling and ordinary application-code changes, or manually from GitHub Actions. It does not publish the release-manager record: an authorized publisher reviews the Draft and publishes it separately.
 
-`app.json` is the authoritative Android version source. Before a new production candidate, deliberately increase both:
+`app.json` supplies the human-readable base version and a minimum Android version code:
 
-- `expo.version` for the human-readable `version_name`; and
-- `expo.android.versionCode` for the positive, monotonically increasing Android version code.
+- `expo.version` (for example, `1.0.0`); and
+- `expo.android.versionCode` (a positive lower bound).
 
-The workflow extracts both values from the generated APK and requires an exact match. Mobile Release Manager rejects a version code that is not greater than an already Published release and rejects a non-identical artifact reusing an existing identity. A retry of identical bytes is idempotent. Do not use GitHub run numbers as Android version codes.
+For each protected-main build, CI derives a deterministic Android version code from the complete `main` Git history and the latest Published release on Mobile Release Manager. It uses the greater of the configured minimum, the commit count, and `latest_published + 1`. The generated version name is the base version plus that code, for example `1.0.0+142`. This allows every merge—including a styling-only merge—to produce a distinct installable APK without relying on GitHub run numbers. The workflow extracts both generated values from the APK and requires an exact match. Mobile Release Manager rejects conflicting artifacts reusing an identity; an identical retry remains idempotent.
 
 For a local upload after independently building and verifying a signed APK:
 
@@ -122,7 +122,7 @@ node scripts/publish-android-release.mjs \
 
 The script streams SHA-256 calculation, performs the authenticated multipart upload, and accepts success only when Frappe returns matching metadata with `Draft` status. It prints no credentials. A `401`/`403`, `413`, conflict, malformed response, or non-Draft result fails the command. Rotate a compromised Frappe API key in Frappe, replace the two GitHub secrets, and remove the old key immediately. Back up the production keystore outside GitHub in access-controlled, recoverable storage; losing it prevents future in-place Android upgrades.
 
-For a local signed build, export the four `ANDROID_*` values, generate Android with `npx expo prebuild --platform android --no-install --non-interactive`, run `node scripts/prepare-android-release.mjs`, then invoke `./gradlew :app:assembleRelease` from `android/` with `-PVUNAPOS_VERSION_NAME` and `-PVUNAPOS_VERSION_CODE` matching `app.json`. Use `aapt dump badging` and `apksigner verify --verbose --print-certs` before the local upload command above.
+For a local signed build, export the four `ANDROID_*` values, generate Android with `npx expo prebuild --platform android --no-install --non-interactive`, run `node scripts/prepare-android-release.mjs`, then invoke `./gradlew :app:assembleRelease` from `android/` with explicitly chosen unique `-PVUNAPOS_VERSION_NAME` and `-PVUNAPOS_VERSION_CODE` values. Use `aapt dump badging` and `apksigner verify --verbose --print-certs` before the local upload command above.
 
 Before the first workflow run, a System Manager must create one enabled **Mobile Release Application** on `https://nl-vms.frappe.cloud` with Android Application ID `ke.co.navari.vunapos`, create the dedicated CI Frappe user, grant it the **Mobile Release Uploader** role, and add it to that application's Authorized Users table with **Can Upload**. The release manager intentionally does not pin an APK certificate fingerprint; CI and the publisher establish signing trust, and the installed VunaPOS client checks signing compatibility again before installation.
 

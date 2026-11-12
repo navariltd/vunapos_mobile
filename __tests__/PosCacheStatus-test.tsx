@@ -33,7 +33,15 @@ describe("PosCacheStatus", () => {
       />,
     );
 
-    expect(screen.getByText("Offline · saved data unavailable")).toBeTruthy();
+    expect(screen.getByText("Connection unavailable · reconnect to refresh")).toBeTruthy();
     expect(screen.queryByText(/Updated/)).toBeNull();
+  });
+
+  it("does not claim saved data is unavailable solely from a connection hint", async () => {
+    const screen = await render(
+      <PosCacheStatus isOffline isStale lastUpdated={null} />,
+    );
+    expect(screen.getByText("Connection unavailable · reconnect to refresh")).toBeTruthy();
+    expect(screen.queryByText(/saved data unavailable/)).toBeNull();
   });
 });

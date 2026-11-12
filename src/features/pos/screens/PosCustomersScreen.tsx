@@ -272,7 +272,7 @@ export function PosCustomersScreen({
                 ))}
               </View>
               <PosCacheStatus
-                isOffline={connectionStatus !== "online"}
+                isOffline={connectionStatus === "offline"}
                 isRefreshing={directory.isRefreshing}
                 isStale={directory.isStale}
                 lastUpdated={directory.lastUpdated}
@@ -286,7 +286,7 @@ export function PosCustomersScreen({
                 tone="neutral"
               />
               <PosCacheStatus
-                isOffline={connectionStatus !== "online"}
+                isOffline={connectionStatus === "offline"}
                 isRefreshing={directory.isRefreshing}
                 isStale={directory.isStale}
                 lastUpdated={directory.lastUpdated}

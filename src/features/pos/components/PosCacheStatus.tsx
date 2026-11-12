@@ -18,7 +18,7 @@ export function PosCacheStatus({
 }: PosCacheStatusProps) {
   const { palette } = useAppearance();
   const label = isOffline
-    ? "Offline · saved data unavailable"
+    ? "Connection unavailable · reconnect to refresh"
     : isRefreshing
       ? "Refreshing…"
       : isStale

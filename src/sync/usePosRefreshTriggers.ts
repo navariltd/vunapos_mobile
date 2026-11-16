@@ -45,9 +45,10 @@ export function usePosRefreshTriggers() {
   }, [scope]);
 
   const probeServerReachability = useCallback(async () => {
+    // Expo's internet hint can be false while a local Frappe site is reachable.
+    // Only the protected server probe can establish expiry or recovery.
     if (
       authState !== "signedIn" ||
-      connectionStatus === "offline" ||
       !companyUrl ||
       !sessionId
     ) {
@@ -101,12 +102,11 @@ export function usePosRefreshTriggers() {
         reachabilityProbeInFlight.current = undefined;
       }
     }
-  }, [authState, companyUrl, connectionStatus, invalidateSession, scope, sessionId]);
+  }, [authState, companyUrl, invalidateSession, scope, sessionId]);
 
   const probeAndRefresh = useCallback(async (source: "foreground" | "reconnect") => {
     if (
       authState !== "signedIn" ||
-      connectionStatus === "offline" ||
       !companyUrl ||
       !sessionId ||
       probeInFlight.current === scope
@@ -131,7 +131,6 @@ export function usePosRefreshTriggers() {
   }, [
     authState,
     companyUrl,
-    connectionStatus,
     probeServerReachability,
     scope,
     sessionId,

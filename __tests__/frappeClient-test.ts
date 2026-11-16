@@ -312,6 +312,14 @@ describe("frappeClient", () => {
         .resolves.toBe("expired");
     });
 
+    it("expires for an unmarked HTML 401 during session validation", async () => {
+      fetchMock.mockResolvedValue(mockResponse({
+        json: "<html>Proxy authentication failed</html>", ok: false, status: 401,
+      }));
+      await expect(validateFrappeSession("https://vuna.example.com", "sid"))
+        .resolves.toBe("expired");
+    });
+
     it("recognizes Frappe's guest denial inside _server_messages", async () => {
       fetchMock.mockResolvedValue(mockResponse({
         json: {
@@ -438,23 +446,23 @@ describe("frappeClient", () => {
         .rejects.toMatchObject({ code: "session", status: 401 });
     });
 
-    it("does not sign out for an HTML 401 from a proxy without a Frappe session marker", async () => {
+    it("expires a protected session for an unmarked HTML 401", async () => {
       const listener = jest.fn();
       const unsubscribe = subscribeToFrappeSessionExpiry(listener);
       fetchMock.mockResolvedValue(mockResponse({ json: "<html>proxy auth</html>", ok: false, status: 401 }));
       try {
         await expect(getVunaMethod("https://vuna.example.com", "sid", "method"))
-          .rejects.toMatchObject({ code: "INVALID_SERVER_RESPONSE", status: 401 });
-        expect(listener).not.toHaveBeenCalled();
+          .rejects.toMatchObject({ code: "session", status: 401 });
+        expect(listener).toHaveBeenCalledWith("https://vuna.example.com", "sid");
       } finally {
         unsubscribe();
       }
     });
 
-    it("does not treat an unmarked JSON 401 from an upstream as confirmed Frappe expiry", async () => {
+    it("expires a protected session for an unmarked JSON 401", async () => {
       fetchMock.mockResolvedValue(mockResponse({ json: {}, ok: false, status: 401 }));
       await expect(getVunaMethod("https://vuna.example.com", "sid", "method"))
-        .rejects.toMatchObject({ code: "api", status: 401 });
+        .rejects.toMatchObject({ code: "session", status: 401 });
     });
 
     it.each([400, 404, 409, 422, 429])("keeps HTTP %i as an API failure rather than session expiry", async (status) => {
@@ -697,6 +705,17 @@ describe("frappeClient", () => {
       await expect(postVunaMethod("https://vuna.example.com", "sid", "method"))
         .rejects.toMatchObject({ code: "session", status: 401 });
     });
+
+    it("expires a session for an unmarked empty 401 after a protected mutation", async () => {
+      fetchMock
+        .mockResolvedValueOnce(mockResponse({
+          json: { message: { data: { csrf_token: "csrf-1" }, ok: true } },
+        }))
+        .mockResolvedValueOnce(mockResponse({ json: "", ok: false, status: 401 }));
+
+      await expect(postVunaMethod("https://vuna.example.com", "sid", "method"))
+        .rejects.toMatchObject({ code: "session", status: 401 });
+    });
   });
 
   describe("postVunaJsonMethod", () => {
@@ -801,6 +820,17 @@ describe("frappeClient", () => {
 
       await expect(postFrappeJsonMethod("https://vuna.example.com", "sid", "method"))
         .rejects.toMatchObject({ code: "INVALID_SERVER_RESPONSE", status: 403 });
+    });
+
+    it("expires a session for an unmarked HTML 401 after a JSON mutation", async () => {
+      fetchMock
+        .mockResolvedValueOnce(mockResponse({
+          json: { message: { data: { csrf_token: "csrf-1" }, ok: true } },
+        }))
+        .mockResolvedValueOnce(mockResponse({ json: "<html>Unauthorized</html>", ok: false, status: 401 }));
+
+      await expect(postFrappeJsonMethod("https://vuna.example.com", "sid", "method"))
+        .rejects.toMatchObject({ code: "session", status: 401 });
     });
 
     it("surfaces Frappe validation messages from failed JSON requests", async () => {

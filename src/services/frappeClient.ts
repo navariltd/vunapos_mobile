@@ -364,10 +364,10 @@ function serverError(status: number) {
 async function readMethodResponse<T>(
   response: Response, method: string, companyUrl: string, sessionId: string,
 ): Promise<T> {
+  // A protected 401 expires the session even when the body is empty, HTML, or JSON.
+  if (response.status === 401) throw sessionError(companyUrl, sessionId, response.status);
   if (response.status >= 500) throw serverError(response.status);
-  // Frappe can revoke the SID on an otherwise empty auth failure. A bare 401
-  // without this cookie or a recognizable Frappe body may come from a proxy.
-  if ((response.status === 401 || response.status === 403) && didFrappeClearSession(response)) {
+  if (response.status === 403 && didFrappeClearSession(response)) {
     throw sessionError(companyUrl, sessionId, response.status);
   }
   const payload = await readJson<T & FrappeErrorResponse>(response, `/api/method/${method}`);
@@ -378,7 +378,7 @@ async function readMethodResponse<T>(
       response.status,
     );
   }
-  if ((response.status === 401 || response.status === 403 || response.ok) && isSessionDenial(payload)) {
+  if ((response.status === 403 || response.ok) && isSessionDenial(payload)) {
     throw sessionError(companyUrl, sessionId, response.status);
   }
   return payload;

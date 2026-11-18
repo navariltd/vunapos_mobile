@@ -29,10 +29,9 @@ if (vunaposReleaseTaskRequested && !vunaposHasReleaseSigning) {
 android.defaultConfig.versionCode = vunaposReleaseVersionCode
 android.defaultConfig.versionName = vunaposReleaseVersionName
 android.defaultConfig.ndk {
-    // Production VunaPOS is distributed to physical ARM64 Android devices.
-    // The CI workflow separately passes this to React Native so it does not
-    // compile x86/x86_64 libraries only to discard them from the APK.
-    abiFilters 'arm64-v8a'
+    // One production APK supports both 32-bit and 64-bit ARM devices.
+    // CI passes the same architectures to React Native to avoid compiling x86.
+    abiFilters 'armeabi-v7a', 'arm64-v8a'
 }
 def vunaposReleaseSigning = android.signingConfigs.maybeCreate('release')
 vunaposReleaseSigning.storeFile = file(vunaposReleaseStoreFile ?: 'missing-release-keystore')
@@ -45,8 +44,11 @@ android.buildTypes.getByName('release').signingConfig = vunaposReleaseSigning
 
 export async function prepareAndroidRelease(buildFile = defaultBuildFile) {
   const source = await readFile(buildFile, "utf8");
-  if (source.includes(marker)) return false;
-  await writeFile(buildFile, `${source.trimEnd()}\n\n${releaseConfigurationBlock()}`);
+  const markerIndex = source.indexOf(marker);
+  const prefix = markerIndex === -1 ? source.trimEnd() : source.slice(0, markerIndex).trimEnd();
+  const prepared = `${prefix}\n\n${releaseConfigurationBlock()}`;
+  if (prepared === source) return false;
+  await writeFile(buildFile, prepared);
   return true;
 }
 

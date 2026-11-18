@@ -178,7 +178,7 @@ jobs:
         run: |
           cd android
           ./gradlew :app:assembleRelease \
-            -PreactNativeArchitectures=arm64-v8a \
+            -PreactNativeArchitectures=armeabi-v7a,arm64-v8a \
             -PVUNAPOS_VERSION_NAME="${{ steps.version.outputs.name }}" \
             -PVUNAPOS_VERSION_CODE="${{ steps.version.outputs.code }}" \
             --build-cache
@@ -204,7 +204,7 @@ jobs:
           test "$VERSION_CODE" = "$EXPECTED_VERSION_CODE"
           test "$VERSION_NAME" = "$EXPECTED_VERSION_NAME"
           APK_ABIS="$(unzip -Z1 "$APK" 'lib/*/*.so' | sed -n 's#^lib/\([^/]*\)/.*#\1#p' | sort -u | tr '\n' ',' | sed 's/,$//')"
-          test "$APK_ABIS" = "arm64-v8a"
+          test "$APK_ABIS" = "arm64-v8a,armeabi-v7a"
           APKSIGNER_OUTPUT="$($APKSIGNER verify --verbose --print-certs "$APK")"
           printf '%s\n' "$APKSIGNER_OUTPUT" | grep -Eq "Verified using v[123] scheme.*: true"
           if printf '%s\n' "$APKSIGNER_OUTPUT" | grep -qi "CN=Android Debug"; then

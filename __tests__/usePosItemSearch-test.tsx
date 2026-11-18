@@ -1,4 +1,4 @@
-import { cleanup, renderHook, waitFor } from '@testing-library/react-native';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react-native';
 
 jest.mock('@/features/auth/AppSessionProvider', () => ({
   useAppSession: jest.fn(),
@@ -42,10 +42,10 @@ describe('usePosItemSearch', () => {
   });
 
   it('searches the authenticated catalogue with the active POS profile', async () => {
-    mockGetVunaMethod.mockResolvedValue([{ actual_qty: 4, item_code: 'BAR-001', item_name: 'Barcode item', rate: 120 }]);
+    mockGetVunaMethod.mockResolvedValue([{ actual_qty: 4, barcode: '012345', item_code: 'BAR-001', item_name: 'Barcode item', rate: 120 }]);
     const hook = await renderHook(() => usePosItemSearch({ posProfile: 'POS-001', query: '012345' }));
 
-    await waitFor(() => expect(hook.result.current.items).toEqual([{ actual_qty: 4, item_code: 'BAR-001', item_name: 'Barcode item', rate: 120 }]));
+    await waitFor(() => expect(hook.result.current.items).toEqual([{ actual_qty: 4, barcode: '012345', item_code: 'BAR-001', item_name: 'Barcode item', rate: 120 }]));
 
     expect(mockGetVunaMethod).toHaveBeenCalledWith('https://vuna.example.com', 'sid-1', 'vunapos.api.item.search_items', {
       limit: 60,
@@ -70,23 +70,44 @@ describe('usePosItemSearch', () => {
     expect(mockGetVunaMethod).not.toHaveBeenCalled();
   });
 
-  it('uses bootstrap catalogue rows locally without downloading the full catalogue', async () => {
+  it('shows bootstrap matches immediately, then includes matching items beyond the bootstrap limit', async () => {
     const items = [
-      { actual_qty: 4, item_code: 'MILK-001', item_name: 'Milk', rate: 120 },
+      { actual_qty: 4, item_code: 'ERISTAR-001', item_name: 'Eristar Bleach 700ml', rate: 120 },
       { actual_qty: 2, item_code: 'BREAD-001', item_name: 'Bread', rate: 80 },
     ];
+    const remote = { actual_qty: 2, item_code: 'ERISTAR-002', item_name: 'Eristar Bleach 500ml', rate: 80 };
+    let resolveSearch: (items: typeof remote[]) => void = () => undefined;
+    mockGetVunaMethod.mockImplementation(() => new Promise((resolve) => { resolveSearch = resolve; }));
     const hook = await renderHook(() =>
       usePosItemSearch({
         initialItems: items,
         loadAll: false,
         posProfile: 'POS-001',
-        query: 'milk',
+        query: 'eristar',
       }),
     );
 
-    await waitFor(() => expect(hook.result.current.items).toEqual([items[0]]));
+    expect(hook.result.current.items).toEqual([items[0]]);
+    await act(async () => { resolveSearch([remote]); });
+    await waitFor(() => expect(hook.result.current.items).toEqual([items[0], remote]));
     expect(hook.result.current.hasLoaded).toBe(true);
-    expect(mockGetVunaMethod).not.toHaveBeenCalled();
+    expect(mockGetVunaMethod).toHaveBeenCalledWith(
+      'https://vuna.example.com', 'sid-1', 'vunapos.api.item.search_items',
+      expect.objectContaining({ query: 'eristar' }), expect.any(AbortSignal),
+    );
+  });
+
+  it('matches separated search words while keeping the server query broad enough to find them', async () => {
+    const remote = { actual_qty: 2, item_code: 'ERISTAR-002', item_name: 'Eristar Bleach 500ml', rate: 80 };
+    mockGetVunaMethod.mockResolvedValue([remote]);
+    const hook = await renderHook(() => usePosItemSearch({
+      initialItems: [], posProfile: 'POS-001', query: 'eristar 500ml',
+    }));
+    await waitFor(() => expect(hook.result.current.items).toEqual([remote]));
+    expect(mockGetVunaMethod).toHaveBeenCalledWith(
+      'https://vuna.example.com', 'sid-1', 'vunapos.api.item.search_items',
+      expect.objectContaining({ query: 'eristar' }), expect.any(AbortSignal),
+    );
   });
 
   it('uses the server for an explicit customer context even when bootstrap rows exist', async () => {

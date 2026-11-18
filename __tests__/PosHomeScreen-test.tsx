@@ -106,7 +106,7 @@ jest.mock("@/features/pos/components/PosItemSearch", () => ({
           <Text>Search items</Text>
         </Pressable>
         <Pressable
-          accessibilityLabel="Submit barcode lookup"
+          accessibilityLabel="Submit item search"
           onPress={onSubmit}
         />
         <Pressable
@@ -178,6 +178,7 @@ jest.mock("@/features/pos/hooks/usePosBootstrap", () => ({
 }));
 
 jest.mock("@/features/pos/hooks/usePosItemSearch", () => ({
+  matchesCatalogueQuery: jest.requireActual("@/features/pos/hooks/usePosItemSearch").matchesCatalogueQuery,
   usePosItemSearch: jest.fn(),
 }));
 
@@ -456,10 +457,10 @@ describe("PosHomeScreen", () => {
     );
     await fireEvent.press(screen.getByText("Card: Cached catalogue item"));
     await fireEvent.press(screen.getByLabelText("Search for one item"));
-    await fireEvent.press(screen.getByLabelText("Submit barcode lookup"));
+    await fireEvent.press(screen.getByLabelText("Submit item search"));
 
     expect(onAddToCart).toHaveBeenCalledWith(item, "KES");
-    expect(mockResolveBarcode).toHaveBeenCalled();
+    expect(mockResolveBarcode).not.toHaveBeenCalled();
   });
 
   it("shows server search results while device reachability is unknown", async () => {

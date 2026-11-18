@@ -543,7 +543,7 @@ describe("PosCartScreen", () => {
     expect(addressInput.props.selection).toBeUndefined();
   });
 
-  it("highlights missing customer and shipping address, then permits checkout once both are selected", async () => {
+  it("requires a customer but permits checkout without a shipping address", async () => {
     const onSelectShippingAddress = jest.fn();
     const props = {
       allowCustomerCreation: false,
@@ -574,15 +574,16 @@ describe("PosCartScreen", () => {
     await fireEvent.press(checkoutButton);
     expect(onCheckout).not.toHaveBeenCalled();
     expect(screen.getByTestId("customer-combobox-input-row")).toHaveStyle({ borderColor: lightPalette.error });
-    expect(screen.getByTestId("cart-shipping-address-input-row")).toHaveStyle({ borderColor: lightPalette.error });
-    expect(screen.getByText("Select a customer and shipping address above.")).toBeTruthy();
+    expect(screen.getByTestId("cart-shipping-address-input-row")).toHaveStyle({ borderColor: lightPalette.border });
+    expect(screen.getByText("Select a customer above.")).toBeTruthy();
 
     const customer = { customer: "CUST-001", customerName: "Example customer" };
     await screen.rerender(<PosCartScreen {...props} requiresCustomer={false} saleCustomer={customer} shippingAddressName="" />);
     expect(screen.getByTestId("customer-combobox-input-row")).toHaveStyle({ borderColor: lightPalette.border });
-    expect(screen.getByText("Select a shipping address above.")).toBeTruthy();
+    expect(screen.queryByText("Select a shipping address above.")).toBeNull();
+    expect(screen.getByLabelText("Proceed to checkout")).toHaveStyle({ backgroundColor: lightPalette.onSurface });
     await fireEvent.press(screen.getByLabelText("Proceed to checkout"));
-    expect(onCheckout).not.toHaveBeenCalled();
+    expect(onCheckout).toHaveBeenCalledTimes(1);
 
     await fireEvent(screen.getByLabelText("Search shipping addresses"), "focus");
     await fireEvent.press(screen.getByLabelText("Select shipping address ADDR-001"));
@@ -592,7 +593,7 @@ describe("PosCartScreen", () => {
     expect(screen.getByTestId("cart-shipping-address-input-row")).toHaveStyle({ borderColor: lightPalette.border });
     expect(screen.getByLabelText("Proceed to checkout")).toHaveStyle({ backgroundColor: lightPalette.onSurface });
     await fireEvent.press(screen.getByLabelText("Proceed to checkout"));
-    expect(onCheckout).toHaveBeenCalledTimes(1);
+    expect(onCheckout).toHaveBeenCalledTimes(2);
   });
 
   it("lets a Sales Order quantity exceed displayed stock without relaxing invoice controls", async () => {
@@ -689,7 +690,7 @@ describe("PosCartScreen", () => {
 
     expect(onUpdateQuantity).toHaveBeenCalledWith("ITEM-001", 2);
     expect(onCheckout).not.toHaveBeenCalled();
-    expect(screen.getByText("Select a customer and shipping address above.")).toBeTruthy();
+    expect(screen.getByText("Select a customer above.")).toBeTruthy();
     expect(onClear).not.toHaveBeenCalled();
   });
 
@@ -899,7 +900,7 @@ describe("PosCartScreen", () => {
 
     expect(screen.getByTestId("cart-customer-label")).toHaveStyle({ fontSize: 12 });
     expect(screen.getByTestId("cart-shipping-address-label")).toHaveStyle({ fontSize: 12 });
-    expect(screen.getAllByText("*")).toHaveLength(2);
+    expect(screen.getAllByText("*")).toHaveLength(1);
     const checkoutButton = screen.getByLabelText("Proceed to checkout");
     expect(checkoutButton.props.accessibilityState.disabled).toBe(false);
     expect(checkoutButton).toHaveStyle({
@@ -910,7 +911,7 @@ describe("PosCartScreen", () => {
     expect(onCheckout).not.toHaveBeenCalled();
     expect(screen.getByTestId("customer-combobox-input-row")).toHaveStyle({ borderColor: lightPalette.error });
     expect(screen.getByLabelText("Search shipping addresses").props.editable).toBe(false);
-    expect(screen.getByText("Select a customer and shipping address above.")).toBeTruthy();
+    expect(screen.getByText("Select a customer above.")).toBeTruthy();
   });
 
   it("shows the profile default customer without a separate reset action", async () => {

@@ -200,25 +200,35 @@ function getMethodUrl(
   return queryString ? `${baseUrl}?${queryString}` : baseUrl;
 }
 
-function getSessionId(response: Response): string | undefined {
+function getLastSessionCookie(response: Response): string | undefined {
   const headers = response.headers as Headers & {
     getSetCookie?: () => string[];
   };
-  const separateCookies = headers.getSetCookie?.();
-  const setCookies = separateCookies?.length ? separateCookies : [headers.get("set-cookie") ?? ""];
+  const separateCookies = headers?.getSetCookie?.();
+  const setCookies = separateCookies?.length ? separateCookies : [headers?.get?.("set-cookie") ?? ""];
   let sessionId: string | undefined;
   for (const setCookie of setCookies) {
     for (const match of setCookie.matchAll(/(?:^|,\s*)sid=([^;,\s]*)/g)) {
       try {
         const sid = decodeURIComponent(match[1]);
-        // A later Guest/empty cookie cancels an earlier authenticated SID.
-        sessionId = sid && sid !== "Guest" && !/[\r\n]/.test(sid) ? sid : undefined;
+        // The final SID assignment wins, including Guest or an explicit clear.
+        sessionId = !/[\r\n]/.test(sid) ? sid : undefined;
       } catch {
         sessionId = undefined;
       }
     }
   }
   return sessionId;
+}
+
+function getSessionId(response: Response): string | undefined {
+  const sid = getLastSessionCookie(response);
+  return sid && sid !== "Guest" ? sid : undefined;
+}
+
+function didFrappeClearSession(response: Response): boolean {
+  const sid = getLastSessionCookie(response);
+  return sid === "Guest" || sid === "";
 }
 
 function getResetKey(redirectTo: unknown): string | undefined {
@@ -354,7 +364,12 @@ function serverError(status: number) {
 async function readMethodResponse<T>(
   response: Response, method: string, companyUrl: string, sessionId: string,
 ): Promise<T> {
+  // A protected 401 expires the session even when the body is empty, HTML, or JSON.
+  if (response.status === 401) throw sessionError(companyUrl, sessionId, response.status);
   if (response.status >= 500) throw serverError(response.status);
+  if (response.status === 403 && didFrappeClearSession(response)) {
+    throw sessionError(companyUrl, sessionId, response.status);
+  }
   const payload = await readJson<T & FrappeErrorResponse>(response, `/api/method/${method}`);
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new FrappeClientError(
@@ -363,7 +378,7 @@ async function readMethodResponse<T>(
       response.status,
     );
   }
-  if ((response.status === 401 || response.status === 403 || response.ok) && isSessionDenial(payload)) {
+  if ((response.status === 403 || response.ok) && isSessionDenial(payload)) {
     throw sessionError(companyUrl, sessionId, response.status);
   }
   return payload;

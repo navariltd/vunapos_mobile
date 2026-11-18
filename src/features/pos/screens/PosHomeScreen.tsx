@@ -22,7 +22,7 @@ import { PosVariantPickerSheet } from "@/features/pos/components/PosVariantPicke
 import { useToast } from "@/components/feedback/ToastProvider";
 import { usePosBarcodeScan } from "@/features/pos/hooks/usePosBarcodeScan";
 import { usePosBootstrap } from "@/features/pos/hooks/usePosBootstrap";
-import { usePosItemSearch } from "@/features/pos/hooks/usePosItemSearch";
+import { matchesCatalogueQuery, usePosItemSearch } from "@/features/pos/hooks/usePosItemSearch";
 import { usePosProductBundle } from "@/features/pos/hooks/usePosProductBundle";
 import { usePosTemplateVariants } from "@/features/pos/hooks/usePosTemplateVariants";
 import { useAppSession } from "@/features/auth/AppSessionProvider";
@@ -36,12 +36,6 @@ import {
 } from "@/features/pos/types";
 import { useAppearance } from "@/theme/AppearanceProvider";
 import { radii, spacing, typography } from "@/theme/tokens";
-
-function matchesSearch(item: PosCatalogueItem, searchTerm: string) {
-  const normalizedItem =
-    `${item.item_name} ${item.item_code} ${item.barcode || ""}`.toLowerCase();
-  return normalizedItem.includes(searchTerm.trim().toLowerCase());
-}
 
 function itemImageUrl(
   image: string | null | undefined,
@@ -128,7 +122,7 @@ export function PosHomeScreen({
       ? cachedItems
       : bootstrapItems;
   const localMatches = localItems.filter((item) =>
-    matchesSearch(item, searchQuery),
+    matchesCatalogueQuery(item, searchQuery),
   );
   const items =
     isOffline || (!searchQuery.trim() && !itemSearch.hasLoaded)
@@ -332,13 +326,6 @@ export function PosHomeScreen({
     return `Could not add ${item.item_name || item.item_code}. Please try again.`;
   }
 
-  async function submitSearch() {
-    const submitted = searchQuery.trim();
-    if (!submitted || pendingItemCode) return;
-    const error = await scanBarcode(submitted);
-    if (error) setAddError(error);
-  }
-
   const renderItem = useCallback<ListRenderItem<PosCatalogueItem>>(
     ({ item }) =>
       hideImages ? (
@@ -459,7 +446,7 @@ export function PosHomeScreen({
             <PosItemSearch
               onChangeText={setSearchQuery}
               onScanBarcode={() => setBarcodeScannerVisible(true)}
-              onSubmit={() => void submitSearch()}
+              onSubmit={() => setAddError(null)}
               scanDisabled={false}
               value={searchQuery}
             />

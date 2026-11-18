@@ -108,7 +108,7 @@ For each protected-main build, CI derives one deterministic Android version code
 
 Draft releases are intentionally not included in version selection. A retry of the same unmerged `main` commit has the same identity and is accepted only when its APK bytes are identical; Mobile Release Manager rejects a conflicting artifact rather than silently allocating another production version. A later `main` commit always has a greater commit count and therefore a distinct identity.
 
-Production APKs are ARM64-only (`arm64-v8a`) to avoid shipping x86/x86_64 and 32-bit ARM native libraries. This substantially reduces download size, but those APKs cannot be installed on the x86_64 Android emulator; use a debug/emulator build for emulator development.
+Production APKs include both 32-bit and 64-bit ARM native libraries (`armeabi-v7a` and `arm64-v8a`) so one APK can install on either class of physical device. x86/x86_64 libraries remain excluded from production; use a debug/emulator build for an x86_64 Android emulator. Carrying both ARM architectures makes the production APK larger than an ARM64-only build.
 
 For a local upload after independently building and verifying a signed APK:
 

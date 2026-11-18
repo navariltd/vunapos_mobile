@@ -1225,11 +1225,9 @@ export function PosCartScreen({
   const isCartBusy = isUpdating || isHolding || hasPendingHold;
   const canHold = Boolean(onHold);
   const missingCustomer = requiresCustomer || !saleCustomer?.customer;
-  const missingShippingAddress = !shippingAddressName;
-  const missingRequiredFields = missingCustomer || missingShippingAddress;
 
   function proceedToCheckout() {
-    if (missingRequiredFields) {
+    if (missingCustomer) {
       setShowRequiredFields(true);
       return;
     }
@@ -1308,13 +1306,12 @@ export function PosCartScreen({
             style={styles.shippingAddressCombo}
           >
             <Text style={styles.requiredFieldLabel} testID="cart-shipping-address-label">
-              Shipping address <Text style={styles.requiredStar}>*</Text>
+              Shipping address
             </Text>
             <View
               testID="cart-shipping-address-input-row"
               style={[
                 styles.shippingAddressSelector,
-                showRequiredFields && missingShippingAddress && styles.invalidField,
                 (isCartBusy || !saleCustomer) && styles.controlDisabled,
               ]}
             >
@@ -1636,32 +1633,28 @@ export function PosCartScreen({
                 <Text style={styles.clearButtonLabel}>Clear Cart</Text>
               </Pressable>
             </View>
-            {showRequiredFields && missingRequiredFields ? (
+            {showRequiredFields && missingCustomer ? (
               <Text accessibilityRole="alert" style={styles.checkoutRequirementError}>
-                {missingCustomer && missingShippingAddress
-                  ? "Select a customer and shipping address above."
-                  : missingCustomer
-                    ? "Select a customer above."
-                    : "Select a shipping address above."}
+                Select a customer above.
               </Text>
             ) : null}
             <Pressable
               accessibilityLabel={
                 sourceInvoice ? "Continue checkout" : "Proceed to checkout"
               }
-              accessibilityHint={missingRequiredFields ? "Select a customer and shipping address to continue" : undefined}
+              accessibilityHint={missingCustomer ? "Select a customer to continue" : undefined}
               disabled={isCartBusy || Boolean(error)}
               onPress={proceedToCheckout}
               style={[
                 styles.checkoutButton,
-                (isCartBusy || error || missingRequiredFields) &&
+                (isCartBusy || error || missingCustomer) &&
                   styles.checkoutButtonDisabled,
               ]}
             >
               <Text
                 style={[
                   styles.checkoutButtonLabel,
-                  (isCartBusy || error || missingRequiredFields) && {
+                  (isCartBusy || error || missingCustomer) && {
                     color: appearance === "dark" ? palette.surface : palette.onSurface,
                   },
                 ]}

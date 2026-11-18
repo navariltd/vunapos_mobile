@@ -162,6 +162,31 @@ describe("usePosRefreshTriggers", () => {
     expect(mockRecoverPosResources).not.toHaveBeenCalled();
   });
 
+  it("still detects session expiry when Android reports offline but the Frappe site is reachable", async () => {
+    mockValidateFrappeSession.mockResolvedValue("expired");
+    await renderHook(() => usePosRefreshTriggers());
+
+    await waitFor(() => expect(mockInvalidateSession).toHaveBeenCalledWith(
+      "sid-1", "https://pos.example.com",
+    ));
+    expect(mockValidateFrappeSession).toHaveBeenCalledWith("https://pos.example.com", "sid-1");
+  });
+
+  it("repairs POS data after a Frappe outage even if Android's reachability remains offline", async () => {
+    jest.useFakeTimers();
+    mockValidateFrappeSession
+      .mockResolvedValueOnce("unavailable")
+      .mockResolvedValueOnce("unavailable")
+      .mockResolvedValue("valid");
+    await renderHook(() => usePosRefreshTriggers());
+    await act(async () => { await jest.advanceTimersByTimeAsync(30_000); });
+    expect(getServerReachabilityDiagnostics().status).toBe("unreachable");
+
+    await act(async () => { await jest.advanceTimersByTimeAsync(30_000); });
+    expect(mockRecoverPosResources).toHaveBeenCalledTimes(1);
+    expect(mockRecoverPosResources).toHaveBeenCalledWith("reconnect");
+  });
+
   it("ignores a late expiry result from a superseded login", async () => {
     mockUseNetworkStatus.mockReturnValue({ connectionStatus: "online" });
     let resolveOldProbe: (status: "expired") => void = () => undefined;

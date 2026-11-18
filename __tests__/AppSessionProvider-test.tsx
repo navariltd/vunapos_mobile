@@ -419,7 +419,31 @@ describe("AppSessionProvider", () => {
     }
   });
 
-  it("does not expire an authenticated session for a proxy's HTML 401", async () => {
+  it("returns to sign-in when Frappe clears the SID despite an empty 401 body", async () => {
+    sessionStore.loadStoredCompanyUrl.mockResolvedValue("https://vuna.example.com");
+    sessionStore.loadStoredSessionId.mockResolvedValue("sid-1");
+    const session = await renderSession();
+    const previousFetch = globalThis.fetch;
+    globalThis.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      headers: { getSetCookie: () => ["sid=Guest; Path=/", "sid=; Max-Age=0; Path=/"] },
+      text: async () => "",
+    }) as typeof fetch;
+    try {
+      await act(async () => {
+        await expect(getVunaMethod("https://vuna.example.com", "sid-1", "method"))
+          .rejects.toMatchObject({ code: "session" });
+      });
+      expect(session.result.current.authState).toBe("sessionExpired");
+      expect(session.result.current.sessionId).toBeNull();
+      expect(posCache.clearSession).toHaveBeenCalledWith("https://vuna.example.com", "sid-1");
+    } finally {
+      globalThis.fetch = previousFetch;
+    }
+  });
+
+  it("expires an authenticated session for an unmarked HTML 401", async () => {
     sessionStore.loadStoredCompanyUrl.mockResolvedValue("https://vuna.example.com");
     sessionStore.loadStoredSessionId.mockResolvedValue("sid-1");
     const session = await renderSession();
@@ -430,10 +454,10 @@ describe("AppSessionProvider", () => {
     try {
       await act(async () => {
         await expect(getVunaMethod("https://vuna.example.com", "sid-1", "method"))
-          .rejects.toMatchObject({ code: "INVALID_SERVER_RESPONSE" });
+          .rejects.toMatchObject({ code: "session" });
       });
-      expect(session.result.current.authState).toBe("signedIn");
-      expect(session.result.current.sessionId).toBe("sid-1");
+      expect(session.result.current.authState).toBe("sessionExpired");
+      expect(session.result.current.sessionId).toBeNull();
     } finally {
       globalThis.fetch = previousFetch;
     }

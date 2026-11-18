@@ -37,6 +37,17 @@ function mergeCatalogueRows(
   return [...rows.values()];
 }
 
+export function matchesCatalogueQuery(item: PosCatalogueItem, query: string) {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const searchable = `${item.item_name} ${item.item_code} ${item.barcode || ""}`.toLowerCase();
+  return words.every((word) => searchable.includes(word));
+}
+
+function serverSearchTerm(query: string) {
+  const words = query.trim().split(/\s+/).filter(Boolean);
+  return words.reduce((longest, word) => word.length > longest.length ? word : longest, "");
+}
+
 /**
  * Searches the live, profile-scoped catalogue after a short typing pause.
  *
@@ -58,20 +69,12 @@ export function usePosItemSearch({
   const [debouncedQuery, setDebouncedQuery] = useState(query.trim());
   const normalizedQuery = query.trim();
 
-  // Bootstrap rows are the SPA-equivalent local catalogue. They already carry
-  // the profile-default rate/UOM/availability, so use them for the default
-  // context and only ask the server when the local catalogue cannot answer a
-  // non-empty query. Customer or explicit price-list contexts still require a
-  // server response because their pricing is contextual.
+  // Show bootstrap rows immediately, but always check the server for a typed
+  // query: the bootstrap contains only the first 500 items and a local match
+  // must not hide additional matching rows outside that snapshot.
   const canUseInitialItems = !customer && !priceList;
   const initialMatches = canUseInitialItems
-    ? (initialItems ?? []).filter((item) => {
-        const needle = normalizedQuery.toLowerCase();
-        if (!needle) return true;
-        return `${item.item_name} ${item.item_code} ${item.barcode || ""}`
-          .toLowerCase()
-          .includes(needle);
-      })
+    ? (initialItems ?? []).filter((item) => matchesCatalogueQuery(item, normalizedQuery))
     : [];
 
   useEffect(() => {
@@ -79,10 +82,8 @@ export function usePosItemSearch({
     return () => clearTimeout(timeout);
   }, [normalizedQuery]);
 
-  const needsServerRequest = canUseInitialItems
-    ? Boolean(debouncedQuery || loadAll) &&
-      (loadAll || initialMatches.length === 0)
-    : Boolean(debouncedQuery || loadAll || initialItems !== undefined);
+  const needsServerRequest = Boolean(debouncedQuery || loadAll ||
+    (!canUseInitialItems && initialItems !== undefined));
   const cacheKey =
     companyUrl && sessionId && posProfile && needsServerRequest
       ? {
@@ -110,7 +111,7 @@ export function usePosItemSearch({
           customer,
           pos_profile: posProfile,
           price_list: priceList,
-          query: debouncedQuery,
+          query: serverSearchTerm(debouncedQuery),
         },
         signal,
       );
@@ -136,7 +137,9 @@ export function usePosItemSearch({
     enabled,
     load,
   });
-  const serverItems = resource.data ?? [];
+  const serverItems = debouncedQuery === normalizedQuery
+    ? (resource.data ?? []).filter((item) => matchesCatalogueQuery(item, normalizedQuery))
+    : [];
   const localRows = normalizedQuery
     ? initialMatches
     : initialItems ?? [];
@@ -160,7 +163,7 @@ export function usePosItemSearch({
       (normalizedQuery !== debouncedQuery || resource.isLoading),
     isRefreshing: resource.isRefreshing,
     isStale: resource.isStale,
-    items: resource.data ? mergedItems : initialMatches,
+    items: resource.data && debouncedQuery === normalizedQuery ? mergedItems : initialMatches,
     lastUpdated: resource.lastUpdated,
     reload: resource.refresh,
   };

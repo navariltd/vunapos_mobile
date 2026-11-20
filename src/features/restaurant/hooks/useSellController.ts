@@ -42,6 +42,15 @@ export function defaultCustomer(value: RestaurantDefaultCustomer | string | null
   return typeof value === "string" ? { customer: value, customer_name: value } : value;
 }
 
+/**
+ * A visit's next round, taken on this device's profile. The visit may have been
+ * opened on another profile (a waiter tablet, a kiosk); the round is still sent
+ * with the signed-in user's profile, so the draft must carry that profile too.
+ */
+export function roundDraftFor(session: RestaurantSessionDTO, posProfile: string, key: string): OrderDraft {
+  return { ...newSessionRound(session, key), pos_profile: posProfile };
+}
+
 /** The draft that belongs on screen: a session's next round, or a new (unopened) order. */
 export function activeDraftFor(draft: OrderDraft | null, sessionName: string | null, posProfile: string) {
   if (!draft || draft.pos_profile !== posProfile) return null;
@@ -90,8 +99,10 @@ export function useSellController({
     if (draft) return;
     if (!sessionName && handoff.current && storeDraft?.restaurant_session === handoff.current) return;
     if (sessionName) {
-      if (!session) return;
-      draftStore.setDraft(newSessionRound(session, newId()));
+      if (!session || session.name !== sessionName) return;
+      const next = roundDraftFor(session, posProfile, newId());
+      // Never set a draft this screen would not show: that would loop.
+      if (activeDraftFor(next, sessionName, posProfile)) draftStore.setDraft(next);
       return;
     }
     const service = serviceTypes.find((row) => row.is_default) ?? serviceTypes[0];
@@ -266,7 +277,7 @@ export function useSellController({
       });
       openedVisit.current = null;
       if (!session) handoff.current = visit.name;
-      draftStore.setDraft(newSessionRound(visit, newId()));
+      draftStore.setDraft(roundDraftFor(visit, posProfile, newId()));
       draftStore.markOrdersChanged();
       return visit.name;
     } catch (caught) {

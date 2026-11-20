@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 
 import { RestaurantApiError } from "@/features/restaurant/api/restaurantClient";
-import { activeDraftFor, defaultCustomer, useSellController } from "@/features/restaurant/hooks/useSellController";
+import { activeDraftFor, defaultCustomer, roundDraftFor, useSellController } from "@/features/restaurant/hooks/useSellController";
 import { draftStore } from "@/features/restaurant/state/draftStore";
 
 jest.mock("expo-router", () => ({ useIsFocused: () => true }));
@@ -138,6 +138,32 @@ describe("restaurant sell controller", () => {
     });
     expect(result.current.draft?.kitchen_routing).toEqual({ BIRYANI: "KS-1" });
     expect(result.current.draft?.unsent).toHaveLength(1);
+  });
+});
+
+describe("visit rounds", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    draftStore.reset();
+    mockApi.getMenu.mockResolvedValue({ items: [], categories: [] });
+  });
+
+  it("takes a round on a visit opened from another profile without looping", async () => {
+    const visit = {
+      name: "VRS-9",
+      status: "Open",
+      pos_profile: "WL - Waiter Tablet",
+      service_type: "Dine In",
+      customer: "Walk-in",
+      customer_name: "Walk-in",
+      guest_count: 2,
+      tables: [{ table: "R1", table_label: "R1", released_at: null }],
+      rounds: [],
+    };
+    const { result } = await renderHook(() => useSellController({ sessionName: "VRS-9", session: visit as never }));
+    await waitFor(() => expect(result.current.draft).not.toBeNull());
+    expect(result.current.draft).toMatchObject({ restaurant_session: "VRS-9", pos_profile: "Nairobi", table: "R1" });
+    expect(roundDraftFor(visit as never, "Nairobi", "k").pos_profile).toBe("Nairobi");
   });
 });
 

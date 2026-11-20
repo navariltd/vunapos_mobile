@@ -35,7 +35,7 @@ describe("restaurantRoleLabel", () => {
 
 describe("isRestaurantPageAllowed", () => {
 	it("allows the floor, order pages and Profile to everyone", () => {
-		for (const page of ["Floor", "Orders", "Sell", "Kitchen", "Sales", "Profile"] as const) {
+		for (const page of ["Orders", "Sell", "Kitchen", "Sales", "Profile"] as const) {
 			expect(isRestaurantPageAllowed(page, false)).toBe(true);
 		}
 	});
@@ -54,7 +54,7 @@ describe("isRestaurantPageAllowed", () => {
 	it("limits kitchen-only users to Kitchen and Profile", () => {
 		expect(isRestaurantPageAllowed("Kitchen", false, { kitchenOnly: true })).toBe(true);
 		expect(isRestaurantPageAllowed("Profile", false, { kitchenOnly: true })).toBe(true);
-		expect(isRestaurantPageAllowed("Floor", false, { kitchenOnly: true })).toBe(false);
+		expect(isRestaurantPageAllowed("Orders", false, { kitchenOnly: true })).toBe(false);
 		expect(isRestaurantPageAllowed("Sell", false, { kitchenOnly: true })).toBe(false);
 	});
 

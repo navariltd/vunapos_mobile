@@ -52,7 +52,7 @@ function RestaurantShell() {
     <LaunchReadyRoute>
       <RestaurantChrome>
         <Tabs
-          initialRouteName={restaurant.kitchenOnly ? "kitchen" : "floor"}
+          initialRouteName={restaurant.kitchenOnly ? "kitchen" : "sell"}
           screenOptions={{ headerShown: false }}
           tabBar={(props) => <RestaurantTabBar {...props} visible={visible} />}
         >

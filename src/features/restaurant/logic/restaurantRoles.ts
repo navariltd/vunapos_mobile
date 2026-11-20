@@ -1,6 +1,5 @@
 /** The restaurant routes on mobile (src/app/(restaurant)). */
 export type RestaurantPage =
-  | "Floor"
   | "Orders"
   | "Sell"
   | "Kitchen"
@@ -70,5 +69,5 @@ export function isRestaurantPageAllowed(
   if (page === "Close Shift") return features?.canManageShift ?? canTakePayment;
   if (page === "Payments") return features?.allowCustomerPayments !== false;
   if (page === "Customers") return features?.allowCustomerManagement !== false;
-  return ["Floor", "Orders", "Sell", "Kitchen", "Sales", "Profile"].includes(page);
+  return ["Orders", "Sell", "Kitchen", "Sales", "Profile"].includes(page);
 }

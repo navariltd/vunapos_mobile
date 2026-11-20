@@ -5,7 +5,7 @@ import { isKitchenOnlyUser } from "@/features/restaurant/logic/restaurantRoles";
 import type { RestaurantBootstrap } from "@/features/restaurant/context/RestaurantContext";
 
 /** Route names of the tabs under src/app/(restaurant). */
-export type RestaurantTabName = "floor" | "orders" | "sell" | "kitchen" | "more";
+export type RestaurantTabName = "sell" | "orders" | "kitchen" | "more";
 
 export type RestaurantTab = {
   name: RestaurantTabName;
@@ -14,9 +14,8 @@ export type RestaurantTab = {
 };
 
 export const RESTAURANT_TABS: readonly RestaurantTab[] = [
-  { name: "floor", label: "Floor", icon: "floor-plan" },
-  { name: "orders", label: "Orders", icon: "clipboard-text-outline" },
   { name: "sell", label: "Sell", icon: "silverware-fork-knife" },
+  { name: "orders", label: "Orders", icon: "clipboard-text-outline" },
   { name: "kitchen", label: "Kitchen", icon: "chef-hat" },
   { name: "more", label: "More", icon: "dots-horizontal" },
 ];
@@ -29,5 +28,5 @@ export function visibleRestaurantTabs(kitchenOnly: boolean): RestaurantTabName[]
 export function restaurantHomeHref(bootstrap: RestaurantBootstrap | null) {
   const profile = bootstrap?.pos_profile;
   const kitchenOnly = isKitchenOnlyUser(profile?.restaurant_roles ?? [], Boolean(profile?.can_manage_restaurant));
-  return kitchenOnly ? ("/(restaurant)/kitchen" as const) : ("/(restaurant)/floor" as const);
+  return kitchenOnly ? ("/(restaurant)/kitchen" as const) : ("/(restaurant)/sell" as const);
 }

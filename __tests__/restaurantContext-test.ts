@@ -77,16 +77,16 @@ describe("restaurant context", () => {
 });
 
 describe("restaurant navigation", () => {
-  it("sends kitchen-only staff to the kitchen and everyone else to the floor", () => {
+  it("sends kitchen-only staff to the kitchen and everyone else to Sell", () => {
     expect(restaurantHomeHref(bootstrap({ restaurant_roles: ["VunaPOS Kitchen User"] }))).toBe("/(restaurant)/kitchen");
-    expect(restaurantHomeHref(bootstrap({ restaurant_roles: ["VunaPOS Waiter"] }))).toBe("/(restaurant)/floor");
+    expect(restaurantHomeHref(bootstrap({ restaurant_roles: ["VunaPOS Waiter"] }))).toBe("/(restaurant)/sell");
     expect(
       restaurantHomeHref(bootstrap({ restaurant_roles: ["VunaPOS Kitchen User"], can_manage_restaurant: true })),
-    ).toBe("/(restaurant)/floor");
+    ).toBe("/(restaurant)/sell");
   });
 
   it("shows kitchen-only staff only Kitchen and More", () => {
     expect(visibleRestaurantTabs(true)).toEqual(["kitchen", "more"]);
-    expect(visibleRestaurantTabs(false)).toEqual(["floor", "orders", "sell", "kitchen", "more"]);
+    expect(visibleRestaurantTabs(false)).toEqual(["sell", "orders", "kitchen", "more"]);
   });
 });

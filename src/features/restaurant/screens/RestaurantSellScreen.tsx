@@ -2,7 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FlashList } from "@shopify/flash-list";
-import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Button, IconButton, ProgressBar, Searchbar, Text } from "react-native-paper";
 
 import { useToast } from "@/components/feedback/ToastProvider";
@@ -368,7 +368,8 @@ export function RestaurantSellScreen() {
           </View>
         </View>
         {session ? (
-          <View style={styles.contextRow}>
+          // More actions than fit a phone's width: the row scrolls sideways.
+          <ScrollView contentContainerStyle={styles.actionRow} horizontal showsHorizontalScrollIndicator={false}>
             <Button compact icon="clipboard-text-outline" mode="text" onPress={() => setRoundsOpen(true)}>
               Orders ({session.rounds.filter((round) => round.status !== "Cancelled").length})
             </Button>
@@ -387,11 +388,10 @@ export function RestaurantSellScreen() {
                 </Button>
               </>
             ) : null}
-            <View style={styles.spacer} />
-            <Button compact mode="text" onPress={startNewSale}>
+            <Button compact icon="plus" mode="text" onPress={startNewSale}>
               New sale
             </Button>
-          </View>
+          </ScrollView>
         ) : null}
         {session?.preparation_status ? (
           <Text style={[styles.contextMuted, styles.readOnly, { color: palette.onSurfaceMuted }]}>
@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
   customerChip: { flexShrink: 1 },
   guests: { alignItems: "center", flexDirection: "row", marginLeft: "auto" },
   shrink: { flexShrink: 1 },
-  spacer: { flex: 1 },
+  actionRow: { alignItems: "center", gap: 2, paddingHorizontal: spacing.xs },
   context: { borderBottomWidth: StyleSheet.hairlineWidth, paddingBottom: spacing.xs },
   contextMuted: { flex: 1, fontFamily: typography.fontFamily.regular, fontSize: typography.size.small },
   contextRow: { alignItems: "center", flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.md },

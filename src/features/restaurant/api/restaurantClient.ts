@@ -1,3 +1,4 @@
+import { restaurantConnectivity } from "@/features/restaurant/state/connectivity";
 import {
   FrappeClientError,
   getVunaMethod,
@@ -57,9 +58,13 @@ function method(name: string) {
 function toRestaurantError(error: unknown): RestaurantApiError {
   if (error instanceof RestaurantApiError) return error;
   if (error instanceof FrappeClientError) {
+    const isConnection = isFrappeConnectionError(error);
+    // Any answer from the server, even a refusal, proves the site is reachable.
+    if (isConnection) restaurantConnectivity.markOffline();
+    else restaurantConnectivity.markOnline();
     return new RestaurantApiError(error.message, {
       code: error.domainCode ?? null,
-      isConnection: isFrappeConnectionError(error),
+      isConnection,
       cause: error,
     });
   }
@@ -83,13 +88,15 @@ export async function restaurantRead<T>(
   signal?: AbortSignal,
 ): Promise<T> {
   try {
-    return await getVunaMethod<T>(
+    const data = await getVunaMethod<T>(
       connection.companyUrl,
       connection.sessionId,
       method(name),
       definedOnly(params),
       signal,
     );
+    restaurantConnectivity.markOnline();
+    return data;
   } catch (error) {
     throw toRestaurantError(error);
   }
@@ -115,6 +122,7 @@ export async function restaurantWrite<T>(
       definedOnly(params),
       signal,
     );
+    restaurantConnectivity.markOnline();
   } catch (error) {
     throw toRestaurantError(error);
   }
@@ -139,7 +147,9 @@ export async function restaurantRawWrite<T>(
   signal?: AbortSignal,
 ): Promise<T> {
   try {
-    return await postFrappeJsonMethod<T>(connection.companyUrl, connection.sessionId, fullMethod, definedOnly(params), signal);
+    const data = await postFrappeJsonMethod<T>(connection.companyUrl, connection.sessionId, fullMethod, definedOnly(params), signal);
+    restaurantConnectivity.markOnline();
+    return data;
   } catch (error) {
     throw toRestaurantError(error);
   }

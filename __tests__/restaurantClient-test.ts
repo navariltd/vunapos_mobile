@@ -7,6 +7,7 @@ import {
   RestaurantApiError,
   restaurantErrorCode,
 } from "@/features/restaurant/api/restaurantClient";
+import { restaurantConnectivity } from "@/features/restaurant/state/connectivity";
 import {
   FrappeClientError,
   getVunaMethod,
@@ -117,5 +118,22 @@ describe("restaurant API client", () => {
     await expect(
       createSessionRound(connection, { session: "S", items: [], idempotency_key: "k", pos_profile: "P" }),
     ).rejects.toThrow("invalid restaurant response");
+  });
+
+  it("tracks connectivity from what requests actually do", async () => {
+    mockPost.mockRejectedValueOnce(new FrappeClientError("Offline", "connection"));
+    await createSessionRound(connection, { session: "S", items: [], idempotency_key: "k", pos_profile: "P" }).catch(() => undefined);
+    expect(restaurantConnectivity.get()).toBe("offline");
+
+    // A refusal still proves the site answered.
+    mockGet.mockRejectedValueOnce(new FrappeClientError("Nope", "api", undefined, undefined, undefined, "SESSION_NOT_OPEN"));
+    await getMenu(connection, { pos_profile: "P" }).catch(() => undefined);
+    expect(restaurantConnectivity.get()).toBe("online");
+
+    mockPost.mockRejectedValueOnce(new FrappeClientError("Offline", "connection"));
+    await createSessionRound(connection, { session: "S", items: [], idempotency_key: "k", pos_profile: "P" }).catch(() => undefined);
+    mockGet.mockResolvedValueOnce({ items: [] });
+    await getMenu(connection, { pos_profile: "P" });
+    expect(restaurantConnectivity.get()).toBe("online");
   });
 });

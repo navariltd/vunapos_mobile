@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { Text } from "react-native-paper";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { NetworkStatusBanner } from "@/components/network/NetworkStatusBanner";
+import { ConnectionBanner } from "@/features/restaurant/components/ConnectionBanner";
 import { useRestaurant } from "@/features/restaurant/context/RestaurantContext";
 import { restaurantRoleLabel } from "@/features/restaurant/logic/restaurantRoles";
 import { useAppearance } from "@/theme/AppearanceProvider";
@@ -36,7 +36,7 @@ export function RestaurantChrome({ children, showProfileButton = true }: PropsWi
           <MaterialCommunityIcons color={palette.onSurface} name="account-circle-outline" size={24} />
         </Pressable> : null}
       </View>
-      <NetworkStatusBanner />
+      <ConnectionBanner />
       <View style={styles.content}>{children}</View>
     </SafeAreaView>
   );

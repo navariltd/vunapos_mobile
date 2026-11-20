@@ -64,12 +64,18 @@ export function usePolledResource<T>(
         if (keyRef.current === requestKey) setState({ key: requestKey, dataKey: requestKey, data, error: null, loading: false });
       } catch (caught) {
         if (keyRef.current === requestKey) {
-          setState((current) => ({
-            ...current,
-            key: requestKey,
-            error: restaurantErrorMessage(caught, "Could not load restaurant data."),
-            loading: false,
-          }));
+          setState((current) => {
+            const fresh = current.dataKey === requestKey;
+            return {
+              key: requestKey,
+              // A failed switch must not leave the previous context's data on screen
+              // (it would look stuck); keep data only if it belongs to this key.
+              dataKey: fresh ? current.dataKey : null,
+              data: fresh ? current.data : null,
+              error: restaurantErrorMessage(caught, "Could not load restaurant data."),
+              loading: false,
+            };
+          });
         }
       } finally {
         if (inFlight.current?.key === requestKey) inFlight.current = null;

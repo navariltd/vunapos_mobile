@@ -61,7 +61,8 @@ export function RestaurantOrdersScreen() {
       toast.warning(`${order.name} is an older order. Open it from the web POS.`);
       return;
     }
-    router.navigate({ pathname: "/(restaurant)/sell", params: { session: order.restaurant_session } });
+    // Open the visit showing what was ordered; the menu behind it takes the next round.
+    router.navigate({ pathname: "/(restaurant)/sell", params: { session: order.restaurant_session, view: "orders" } });
   }
 
   return (

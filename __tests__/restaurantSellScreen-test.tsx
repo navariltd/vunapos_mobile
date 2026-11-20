@@ -11,7 +11,7 @@ jest.mock("@shopify/flash-list/dist/recyclerview/utils/measureLayout", () => {
   return { ...actual, measureParentSize: jest.fn(box), measureFirstChildLayout: jest.fn(box), measureItemLayout: jest.fn(box) };
 });
 
-const mockParams: { session?: string } = {};
+const mockParams: { session?: string; view?: string } = {};
 jest.mock("expo-router", () => ({
   router: { setParams: jest.fn(), navigate: jest.fn(), push: jest.fn() },
   useIsFocused: () => true,
@@ -138,5 +138,28 @@ describe("restaurant Sell screen", () => {
     expect(mockApi.getMenu).toHaveBeenCalledTimes(1);
     await flushListLayout();
     delete mockParams.session;
+  });
+
+  it("shows a visit's placed orders when opened from Orders", async () => {
+    mockParams.session = "VRS-2";
+    mockParams.view = "orders";
+    mockApi.getSession.mockResolvedValue({
+      name: "VRS-2", status: "Open", pos_profile: "Cashier", service_type: "Takeaway", customer: "Walk-in",
+      customer_name: "Walk-in", guest_count: 1, waiter: "w", waiter_name: "Waiter", opened_at: "2026-11-20 09:00:00",
+      modified: "m", restaurant: "Java", branch: "B", company: "C", tables: [], kitchen_tickets: [],
+      rounds: [{ name: "SO-1", status: "Open", grand_total: 1010, items: [
+        { line_id: "l1", item_code: "BURGER", item_name: "Beef Burger", qty: 1, uom: "Nos", note: null, added_by: "w", added_at: "t" },
+      ] }],
+    });
+    await render(
+      <PaperProvider>
+        <RestaurantSellScreen />
+      </PaperProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("Placed orders")).toBeTruthy());
+    expect(screen.getByText("Round 1")).toBeTruthy();
+    await flushListLayout();
+    delete mockParams.session;
+    delete mockParams.view;
   });
 });

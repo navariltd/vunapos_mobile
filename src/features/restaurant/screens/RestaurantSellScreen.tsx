@@ -51,7 +51,7 @@ export function RestaurantSellScreen() {
   const { palette } = useAppearance();
   const toast = useToast();
   const restaurant = useRestaurant();
-  const params = useLocalSearchParams<{ session?: string }>();
+  const params = useLocalSearchParams<{ session?: string; view?: string }>();
   const sessionName = typeof params.session === "string" && params.session ? params.session : null;
   const sessionFetcher = useCallback(
     () => getSession(restaurant.connection, sessionName ?? ""),
@@ -81,6 +81,13 @@ export function RestaurantSellScreen() {
   const [billOpen, setBillOpen] = useState(false);
   const [settled, setSettled] = useState<SessionSettlementDTO | null>(null);
   const receipt = useReceipt();
+
+  // Opened from Orders: show the visit's placed orders first, until closed.
+  const showRounds = roundsOpen || (params.view === "orders" && Boolean(session));
+  function closeRounds() {
+    setRoundsOpen(false);
+    if (params.view) router.setParams({ view: "" });
+  }
   const { draft, menu, serviceType, setError } = sell;
   const readOnly = Boolean(session && session.status !== "Open");
   const precision = restaurant.currencyPrecision;
@@ -184,7 +191,7 @@ export function RestaurantSellScreen() {
         onPress: () => {
           void visit.cancelEmpty().then((done) => {
             if (!done) return;
-            setRoundsOpen(false);
+            closeRounds();
             toast.info("Visit cancelled.");
             startNewSale();
           });
@@ -581,16 +588,16 @@ export function RestaurantSellScreen() {
           {receipt.error ? <Text style={{ color: palette.error }}>{receipt.error}</Text> : null}
         </Sheet>
       ) : null}
-      {roundsOpen && session ? (
+      {showRounds && session ? (
         <RoundsSheet
           busy={visit.busy}
           canCancel={!readOnly && !session.rounds.some((round) => round.status !== "Cancelled")}
           currency={currency}
           onAssignWaiter={() => setWaiterOpen(true)}
           onCancelVisit={cancelVisit}
-          onClose={() => setRoundsOpen(false)}
+          onClose={closeRounds}
           onOpenTicket={(name) => {
-            setRoundsOpen(false);
+            closeRounds();
             setTicket(name);
           }}
           precision={precision}

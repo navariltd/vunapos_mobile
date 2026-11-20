@@ -29,6 +29,28 @@ describe("usePolledResource", () => {
     expect(result.current).toMatchObject({ data: "menu B", isStale: false, isLoading: false });
   });
 
+  it("shows the error instead of the previous results when a switch fails", async () => {
+    const fetchers: Record<string, () => Promise<string>> = {
+      a: async () => "menu A",
+      b: async () => {
+        throw new Error("Table R1 does not belong to restaurant Java");
+      },
+    };
+    const { result, rerender } = await renderHook(
+      ({ key }: { key: string }) => usePolledResource(key, fetchers[key], { intervalMs: 0, keepPreviousData: true }),
+      { initialProps: { key: "a" } },
+    );
+    await act(async () => undefined);
+    await rerender({ key: "b" });
+    await act(async () => undefined);
+    expect(result.current).toMatchObject({
+      data: null,
+      isStale: false,
+      isLoading: false,
+      error: "Table R1 does not belong to restaurant Java",
+    });
+  });
+
   it("blanks by default when the key changes", async () => {
     const pending = deferred<string>();
     const fetchers: Record<string, () => Promise<string>> = { a: async () => "A", b: () => pending.promise };

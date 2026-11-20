@@ -199,6 +199,10 @@ export function useSellController({
   const removeLine = (lineId: string) => draftStore.updateDraft((current) => removeUnsent(current, lineId));
   const setNote = (lineId: string, note: string) => draftStore.updateDraft((current) => setUnsentNote(current, lineId, note));
   const setOrderNote = (orderNote: string) => draftStore.updateDraft((current) => setHeader(current, { order_note: orderNote }));
+  /** A new sale's customer and guests (an open visit changes these through update_session). */
+  const setDraftCustomer = (customer: { customer: string; customer_name: string }) =>
+    draftStore.updateDraft((current) => setHeader(current, { customer: customer.customer, customer_name: customer.customer_name }));
+  const setDraftGuests = (pax: number) => draftStore.updateDraft((current) => setHeader(current, { pax }));
   const clearUnsent = () => draftStore.updateDraft((current) => ({ ...current, unsent: [] }));
 
   /** Before a visit opens, the service type and table can still change. */
@@ -323,6 +327,8 @@ export function useSellController({
     setQty,
     setNote,
     setOrderNote,
+    setDraftCustomer,
+    setDraftGuests,
     removeLine,
     clearUnsent,
     chooseServiceType,

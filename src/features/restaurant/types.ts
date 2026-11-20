@@ -525,3 +525,15 @@ export type KitchenBoardDTO = {
   has_more: boolean;
   start: number;
 };
+
+// ---- customers ----
+
+export type RestaurantCustomerDTO = {
+  customer: string;
+  customer_name: string;
+  mobile_no?: string | null;
+  email_id?: string | null;
+  customer_group?: string | null;
+  tax_id?: string | null;
+  is_walkin?: boolean;
+};

@@ -14,6 +14,7 @@ import type {
   MenuDTO,
   OrderLineInput,
   PaymentInput,
+  RestaurantCustomerDTO,
   RestaurantOrderDTO,
   RestaurantOrderSummaryDTO,
   RestaurantSessionDTO,
@@ -218,3 +219,8 @@ export const openShift = (
     "vunapos.api.pos_entry.create_opening_entry",
     params,
   );
+
+// ---- customers (shared VunaPOS endpoint) ----
+
+export const searchCustomers = (c: C, params: { pos_profile: string; query?: string; limit?: number }) =>
+  restaurantRead<RestaurantCustomerDTO[]>(c, "vunapos.api.customer.search_customers", params);

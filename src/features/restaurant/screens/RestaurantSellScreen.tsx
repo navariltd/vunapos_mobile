@@ -2,24 +2,31 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, View } from "react-native";
-import { Button, Searchbar, Text } from "react-native-paper";
+import { Button, IconButton, Searchbar, Text } from "react-native-paper";
 
 import { useToast } from "@/components/feedback/ToastProvider";
 import { getSession, getTemplateVariants } from "@/features/restaurant/api/restaurantApi";
 import { restaurantErrorMessage } from "@/features/restaurant/api/restaurantClient";
 import { ChipRow } from "@/features/restaurant/components/ChipRow";
+import { CustomerPickerSheet } from "@/features/restaurant/components/CustomerPickerSheet";
+import { KitchenTicketSheet } from "@/features/restaurant/components/KitchenTicketSheet";
 import { KitchenRoutingSheet } from "@/features/restaurant/components/KitchenRoutingSheet";
 import { MenuItemCard } from "@/features/restaurant/components/MenuItemCard";
 import { ModifierPickerSheet } from "@/features/restaurant/components/ModifierPickerSheet";
 import { OrderSheet } from "@/features/restaurant/components/OrderSheet";
 import { RestaurantPlaceholder } from "@/features/restaurant/components/RestaurantPlaceholder";
+import { RoundsSheet } from "@/features/restaurant/components/RoundsSheet";
+import { Sheet } from "@/features/restaurant/components/Sheet";
 import { TablePicker } from "@/features/restaurant/components/TablePicker";
 import { VariantPickerSheet } from "@/features/restaurant/components/VariantPickerSheet";
 import { useRestaurant } from "@/features/restaurant/context/RestaurantContext";
 import { formatMoney, itemImageUrl } from "@/features/restaurant/format";
 import { usePolledResource } from "@/features/restaurant/hooks/usePolledResource";
 import { useSellController } from "@/features/restaurant/hooks/useSellController";
+import { useVisitActions } from "@/features/restaurant/hooks/useVisitActions";
+import { restaurantCustomerControls } from "@/features/restaurant/logic/customerControls";
 import { unsentCount } from "@/features/restaurant/logic/orderDraft";
+import { selectVisitTable } from "@/features/restaurant/logic/tableTransfer";
 import type {
   MenuItemDTO,
   ModifierGroupDTO,
@@ -48,6 +55,7 @@ export function RestaurantSellScreen() {
   const sessionResult = usePolledResource(sessionName ? `session:${sessionName}` : null, sessionFetcher);
   const session = sessionResult.data?.name === sessionName ? sessionResult.data : null;
   const sell = useSellController({ sessionName, session });
+  const visit = useVisitActions(session, sessionResult.refresh);
   const [category, setCategory] = useState("");
   const [query, setQuery] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -60,6 +68,11 @@ export function RestaurantSellScreen() {
   } | null>(null);
   const [customizing, setCustomizing] = useState<{ item: MenuItemDTO; groups: ModifierGroupDTO[] } | null>(null);
   const variantRequest = useRef(0);
+  const [tableAction, setTableAction] = useState<{ kind: "join" | "transfer"; selection: string[] } | null>(null);
+  const [roundsOpen, setRoundsOpen] = useState(false);
+  const [waiterOpen, setWaiterOpen] = useState(false);
+  const [customerOpen, setCustomerOpen] = useState(false);
+  const [ticket, setTicket] = useState<string | null>(null);
   const { draft, menu, serviceType, setError } = sell;
   const readOnly = Boolean(session && session.status !== "Open");
   const precision = restaurant.currencyPrecision;
@@ -70,6 +83,14 @@ export function RestaurantSellScreen() {
     toast.error(sell.error);
     setError(null);
   }, [sell.error, setError, toast]);
+
+  const visitError = visit.error;
+  const clearVisitError = visit.clearError;
+  useEffect(() => {
+    if (!visitError) return;
+    toast.error(visitError);
+    clearVisitError();
+  }, [clearVisitError, toast, visitError]);
 
   function openSession(name: string) {
     const leave = () => {
@@ -90,13 +111,23 @@ export function RestaurantSellScreen() {
   }
 
   function pickTable(table: RestaurantTableDTO, row: TableStatusDTO | undefined) {
-    const visit = row?.session;
-    if (visit?.status === "Settled") {
+    const visitRow = row?.session;
+    if (visitRow?.status === "Settled") {
       toast.info(`Table ${table.table_label} has a paid kiosk order. Clear it when the guests leave.`);
       return;
     }
-    if (visit) {
-      if (visit.name !== sessionName) openSession(visit.name);
+    if (visitRow) {
+      if (visitRow.name === sessionName) {
+        if (tableAction?.kind === "join") {
+          setTableAction({ ...tableAction, selection: selectVisitTable(tableAction.selection, table.name, "join") });
+        }
+        return;
+      }
+      if (session) {
+        toast.warning(`Table ${table.table_label} belongs to another visit. Choose a free table.`);
+        return;
+      }
+      openSession(visitRow.name);
       return;
     }
     if (row?.orders.length) {
@@ -104,13 +135,56 @@ export function RestaurantSellScreen() {
       return;
     }
     if (session) {
-      // Joining or moving tables on an open visit comes with the visit controls.
+      if (tableAction) {
+        setTableAction({ ...tableAction, selection: selectVisitTable(tableAction.selection, table.name, tableAction.kind) });
+      }
       return;
     }
     void sell
       .chooseTable(table)
       .then(() => setPickingTable(false))
       .catch(() => undefined);
+  }
+
+  const activeTables = session?.tables.filter((row) => !row.released_at).map((row) => row.table) ?? [];
+
+  function startTableAction(kind: "join" | "transfer") {
+    setTableAction({ kind, selection: kind === "join" ? activeTables : [] });
+  }
+
+  async function saveTables() {
+    if (!tableAction?.selection.length) return;
+    const saved = await visit.setTables(tableAction.selection);
+    if (saved) {
+      toast.success(tableAction.kind === "transfer" ? "Visit moved." : "Tables updated.");
+      setTableAction(null);
+    }
+  }
+
+  function changeGuests(delta: number) {
+    if (session) {
+      void visit.setGuests((session.guest_count || 0) + delta);
+    } else if (draft) {
+      sell.setDraftGuests(Math.max(0, (sell.header?.pax ?? 0) + delta));
+    }
+  }
+
+  function cancelVisit() {
+    Alert.alert("Cancel this visit?", "It has no orders. Its tables are released.", [
+      { style: "cancel", text: "Keep" },
+      {
+        onPress: () => {
+          void visit.cancelEmpty().then((done) => {
+            if (!done) return;
+            setRoundsOpen(false);
+            toast.info("Visit cancelled.");
+            startNewSale();
+          });
+        },
+        style: "destructive",
+        text: "Cancel visit",
+      },
+    ]);
   }
 
   async function place(routing?: Record<string, string>) {
@@ -151,7 +225,13 @@ export function RestaurantSellScreen() {
         .map((row) => row.table_label)
         .join(" + ")
     : draft.table_label;
-  const showTablePicker = sell.needsTable || pickingTable;
+  const showTablePicker = sell.needsTable || pickingTable || Boolean(tableAction);
+  const guests = session ? session.guest_count || 0 : sell.header?.pax ?? 0;
+  const customerControls = restaurantCustomerControls({
+    allowCreation: false,
+    roundCount: session?.rounds.length ?? 0,
+    readOnly: readOnly || visit.busy,
+  });
   const items = (menu.menu?.items ?? []).filter((item) => {
     const needle = query.trim().toLowerCase();
     return (
@@ -227,33 +307,76 @@ export function RestaurantSellScreen() {
             setPickingTable(Boolean(next.requires_table));
           }}
         />
-        {serviceType?.requires_table || session ? (
+        <View style={styles.contextRow}>
+          {serviceType?.requires_table ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={Boolean(session) || readOnly}
+              onPress={() => setPickingTable(true)}
+              style={[styles.tableChip, { borderColor: palette.border }]}
+            >
+              <MaterialCommunityIcons color={palette.onSurface} name="table-furniture" size={16} />
+              <Text style={[styles.contextText, { color: palette.onSurface }]}>
+                {tableLabel ? `Table ${tableLabel}` : "Choose a table"}
+              </Text>
+            </Pressable>
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            disabled={customerControls.disabled}
+            onPress={() => setCustomerOpen(true)}
+            style={[styles.tableChip, styles.customerChip, { borderColor: palette.border }]}
+          >
+            <MaterialCommunityIcons color={palette.onSurface} name="account-outline" size={16} />
+            <Text numberOfLines={1} style={[styles.contextText, styles.shrink, { color: palette.onSurface }]}>
+              {session?.customer_name ?? sell.header?.customer_name ?? "Customer"}
+            </Text>
+          </Pressable>
+          <View style={styles.guests}>
+            <IconButton
+              accessibilityLabel="One guest fewer"
+              disabled={readOnly || visit.busy || guests <= 0}
+              icon="minus"
+              onPress={() => changeGuests(-1)}
+              size={14}
+            />
+            <Text style={[styles.contextText, { color: palette.onSurface }]}>
+              <MaterialCommunityIcons name="account-multiple-outline" size={14} /> {guests}
+            </Text>
+            <IconButton
+              accessibilityLabel="One more guest"
+              disabled={readOnly || visit.busy}
+              icon="plus"
+              onPress={() => changeGuests(1)}
+              size={14}
+            />
+          </View>
+        </View>
+        {session ? (
           <View style={styles.contextRow}>
-            {serviceType?.requires_table ? (
-              <Pressable
-                accessibilityRole="button"
-                disabled={Boolean(session) || readOnly}
-                onPress={() => setPickingTable(true)}
-                style={[styles.tableChip, { borderColor: palette.border }]}
-              >
-                <MaterialCommunityIcons color={palette.onSurface} name="table-furniture" size={16} />
-                <Text style={[styles.contextText, { color: palette.onSurface }]}>
-                  {tableLabel ? `Table ${tableLabel}` : "Choose a table"}
-                </Text>
-              </Pressable>
-            ) : null}
-            {session ? (
+            <Button compact icon="clipboard-text-outline" mode="text" onPress={() => setRoundsOpen(true)}>
+              Orders ({session.rounds.filter((round) => round.status !== "Cancelled").length})
+            </Button>
+            {serviceType?.requires_table && !readOnly ? (
               <>
-                <Text numberOfLines={1} style={[styles.contextMuted, { color: palette.onSurfaceMuted }]}>
-                  {session.customer_name} · {session.guest_count || 0} guests
-                  {session.preparation_status ? ` · ${session.preparation_status}` : ""}
-                </Text>
-                <Button compact mode="text" onPress={startNewSale}>
-                  New sale
+                <Button compact disabled={visit.busy} mode="text" onPress={() => startTableAction("transfer")}>
+                  Move
+                </Button>
+                <Button compact disabled={visit.busy} mode="text" onPress={() => startTableAction("join")}>
+                  Join
                 </Button>
               </>
             ) : null}
+            <View style={styles.spacer} />
+            <Button compact mode="text" onPress={startNewSale}>
+              New sale
+            </Button>
           </View>
+        ) : null}
+        {session?.preparation_status ? (
+          <Text style={[styles.contextMuted, styles.readOnly, { color: palette.onSurfaceMuted }]}>
+            Kitchen: {session.preparation_status}
+          </Text>
         ) : null}
         {readOnly ? (
           <Text style={[styles.contextMuted, styles.readOnly, { color: palette.warning }]}>
@@ -263,12 +386,34 @@ export function RestaurantSellScreen() {
       </View>
 
       {showTablePicker ? (
-        <TablePicker
-          onCancel={sell.needsTable ? undefined : () => setPickingTable(false)}
-          onPick={pickTable}
-          prompt={`Choose a table for ${serviceType?.service_type_name ?? "this order"}`}
-          selected={draft.table ? [draft.table] : []}
-        />
+        <>
+          <TablePicker
+            onCancel={
+              tableAction ? () => setTableAction(null) : sell.needsTable ? undefined : () => setPickingTable(false)
+            }
+            onPick={pickTable}
+            prompt={
+              tableAction?.kind === "transfer"
+                ? "Choose a free table to move this visit to"
+                : tableAction?.kind === "join"
+                  ? "Tap free tables to join them to this visit"
+                  : `Choose a table for ${serviceType?.service_type_name ?? "this order"}`
+            }
+            selected={tableAction ? tableAction.selection : draft.table ? [draft.table] : []}
+          />
+          {tableAction ? (
+            <View style={[styles.confirmBar, { backgroundColor: palette.surface, borderTopColor: palette.border }]}>
+              <Text style={[styles.contextMuted, { color: palette.onSurface }]}>
+                {tableAction.selection.length
+                  ? `${tableAction.selection.length} table${tableAction.selection.length === 1 ? "" : "s"} selected`
+                  : "No table selected"}
+              </Text>
+              <Button disabled={!tableAction.selection.length || visit.busy} loading={visit.busy} mode="contained" onPress={() => void saveTables()}>
+                {tableAction.kind === "transfer" ? "Move here" : "Save tables"}
+              </Button>
+            </View>
+          ) : null}
+        </>
       ) : (
         <>
           {menu.menu?.categories.length ? (
@@ -322,7 +467,7 @@ export function RestaurantSellScreen() {
         </>
       )}
 
-      {count ? (
+      {count && !showTablePicker ? (
         <Pressable
           accessibilityLabel={`Review ${count} new items`}
           accessibilityRole="button"
@@ -361,6 +506,51 @@ export function RestaurantSellScreen() {
         title={[serviceType?.service_type_name, tableLabel ? `Table ${tableLabel}` : null].filter(Boolean).join(" · ")}
         visible={sheetOpen}
       />
+      {roundsOpen && session ? (
+        <RoundsSheet
+          busy={visit.busy}
+          canCancel={!readOnly && !session.rounds.some((round) => round.status !== "Cancelled")}
+          currency={currency}
+          onAssignWaiter={() => setWaiterOpen(true)}
+          onCancelVisit={cancelVisit}
+          onClose={() => setRoundsOpen(false)}
+          onOpenTicket={(name) => {
+            setRoundsOpen(false);
+            setTicket(name);
+          }}
+          precision={precision}
+          session={session}
+        />
+      ) : null}
+      {waiterOpen && session ? (
+        <Sheet onClose={() => setWaiterOpen(false)} title="Assign waiter" visible>
+          {(session.available_waiters ?? []).map((user) => (
+            <Button
+              disabled={visit.busy}
+              icon={user.name === session.waiter ? "check" : undefined}
+              key={user.name}
+              mode={user.name === session.waiter ? "contained-tonal" : "outlined"}
+              onPress={() => {
+                setWaiterOpen(false);
+                if (user.name !== session.waiter) void visit.setWaiter(user.name);
+              }}
+            >
+              {user.full_name || user.name}
+            </Button>
+          ))}
+        </Sheet>
+      ) : null}
+      {customerOpen ? (
+        <CustomerPickerSheet
+          onClose={() => setCustomerOpen(false)}
+          onPick={(customer) => {
+            setCustomerOpen(false);
+            if (session) void visit.setCustomer(customer.customer);
+            else sell.setDraftCustomer(customer);
+          }}
+        />
+      ) : null}
+      {ticket ? <KitchenTicketSheet name={ticket} onClose={() => setTicket(null)} /> : null}
       {variantsFor ? (
         <VariantPickerSheet
           currency={currency}
@@ -423,6 +613,18 @@ const styles = StyleSheet.create({
   cartCountText: { fontFamily: typography.fontFamily.semibold, fontSize: typography.size.small },
   cartText: { flex: 1, fontFamily: typography.fontFamily.semibold, fontSize: typography.size.body },
   columns: { gap: spacing.sm },
+  confirmBar: {
+    alignItems: "center",
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: spacing.sm,
+    padding: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  customerChip: { flexShrink: 1 },
+  guests: { alignItems: "center", flexDirection: "row", marginLeft: "auto" },
+  shrink: { flexShrink: 1 },
+  spacer: { flex: 1 },
   context: { borderBottomWidth: StyleSheet.hairlineWidth, paddingBottom: spacing.xs },
   contextMuted: { flex: 1, fontFamily: typography.fontFamily.regular, fontSize: typography.size.small },
   contextRow: { alignItems: "center", flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.md },

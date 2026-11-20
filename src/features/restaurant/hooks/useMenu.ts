@@ -34,7 +34,7 @@ export function useMenu(params: {
       }),
     [connection, customer, posProfile, priceList, serviceType, table],
   );
-  const result = usePolledResource(key, fetcher, { intervalMs: 0 });
+  const result = usePolledResource(key, fetcher, { intervalMs: 0, keepPreviousData: true });
   const reload = useCallback(() => setRevision((current) => current + 1), []);
 
   // Timed availability (e.g. breakfast until 11:00) expires on the server's schedule.
@@ -45,5 +45,6 @@ export function useMenu(params: {
     return () => clearTimeout(timer);
   }, [expiresAfter, reload]);
 
-  return { menu: result.data, error: result.error, isLoading: result.isLoading, reload };
+  // While switching context the previous menu stays on screen (isStale) instead of blanking.
+  return { menu: result.data, error: result.error, isLoading: result.isLoading, isStale: result.isStale, reload };
 }

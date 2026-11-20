@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FlashList } from "@shopify/flash-list";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
-import { Button, IconButton, Searchbar, Text } from "react-native-paper";
+import { Button, IconButton, ProgressBar, Searchbar, Text } from "react-native-paper";
 
 import { useToast } from "@/components/feedback/ToastProvider";
 import { getSession, getTemplateVariants } from "@/features/restaurant/api/restaurantApi";
@@ -437,6 +437,8 @@ export function RestaurantSellScreen() {
               onChange={setCategory}
             />
           ) : null}
+          {/* Switching service type, table or customer keeps the current menu (dimmed) until the new one arrives. */}
+          <ProgressBar indeterminate style={styles.progress} visible={menu.isStale} />
           <Searchbar
             onChangeText={setQuery}
             placeholder="Search the menu"
@@ -452,6 +454,7 @@ export function RestaurantSellScreen() {
               </Button>
             </RestaurantPlaceholder>
           ) : (
+            <View pointerEvents={menu.isStale ? "none" : "auto"} style={[styles.root, menu.isStale && styles.stale]}>
             <FlashList
               contentContainerStyle={styles.grid}
               data={items}
@@ -479,6 +482,7 @@ export function RestaurantSellScreen() {
                 </View>
               )}
             />
+            </View>
           )}
         </>
       )}
@@ -703,7 +707,9 @@ const styles = StyleSheet.create({
   contextText: { fontFamily: typography.fontFamily.medium, fontSize: typography.size.small },
   grid: { padding: spacing.md - spacing.sm / 2, paddingBottom: 96 },
   readOnly: { paddingHorizontal: spacing.md, paddingTop: spacing.xs },
+  progress: { height: 2 },
   root: { flex: 1 },
+  stale: { opacity: 0.5 },
   search: { elevation: 0, marginHorizontal: spacing.md, marginBottom: spacing.xs },
   tableChip: {
     alignItems: "center",

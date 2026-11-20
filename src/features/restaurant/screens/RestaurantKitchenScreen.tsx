@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { FlashList } from "@shopify/flash-list";
 import { Pressable, RefreshControl, StyleSheet, useWindowDimensions, View } from "react-native";
-import { Button, Text } from "react-native-paper";
+import { Button, ProgressBar, Text } from "react-native-paper";
 
 import { getKitchenBoard } from "@/features/restaurant/api/restaurantApi";
 import { ChipRow } from "@/features/restaurant/components/ChipRow";
@@ -54,7 +54,8 @@ export function RestaurantKitchenScreen() {
   const board = usePolledResource(
     JSON.stringify(["kitchen", restaurant.posProfile, station, history, pages]),
     fetcher,
-    { intervalMs: KITCHEN_POLL_INTERVAL_MS },
+    // Switching station or history keeps the current board (and its filters) on screen.
+    { intervalMs: KITCHEN_POLL_INTERVAL_MS, keepPreviousData: true },
   );
   const actions = useKitchenActions(board.refresh);
   const columns = width >= 900 ? 3 : width >= 600 ? 2 : 1;
@@ -87,9 +88,14 @@ export function RestaurantKitchenScreen() {
           setPages(1);
         }}
       />
+      <ProgressBar indeterminate style={styles.progress} visible={board.isStale} />
       <View style={styles.toolbar}>
         <Text style={[styles.meta, { color: board.error ? palette.error : palette.onSurfaceMuted }]}>
-          {board.error ? "Not refreshed. Retrying." : `${board.data.tickets.length} ticket${board.data.tickets.length === 1 ? "" : "s"}`}
+          {board.isStale
+            ? "Loading…"
+            : board.error
+              ? "Not refreshed. Retrying."
+              : `${board.data.tickets.length} ticket${board.data.tickets.length === 1 ? "" : "s"}`}
         </Text>
         <Button
           compact
@@ -103,6 +109,7 @@ export function RestaurantKitchenScreen() {
           {history ? "Showing done" : "Show done"}
         </Button>
       </View>
+      <View pointerEvents={board.isStale ? "none" : "auto"} style={[styles.root, board.isStale && styles.stale]}>
       <FlashList
         contentContainerStyle={styles.list}
         data={board.data.tickets}
@@ -131,6 +138,7 @@ export function RestaurantKitchenScreen() {
           </View>
         )}
       />
+      </View>
       {opened ? (
         <KitchenTicketSheet
           name={opened}
@@ -224,7 +232,9 @@ const styles = StyleSheet.create({
   more: { marginTop: spacing.xs },
   note: { fontFamily: typography.fontFamily.medium, fontSize: typography.size.small, fontStyle: "italic" },
   qty: { fontFamily: typography.fontFamily.semibold, fontSize: 15, minWidth: 30 },
+  progress: { height: 2 },
   root: { flex: 1 },
+  stale: { opacity: 0.5 },
   status: { borderRadius: radii.pill, borderWidth: 1, paddingHorizontal: spacing.xs, paddingVertical: 2 },
   statusText: { fontFamily: typography.fontFamily.semibold, fontSize: typography.size.tiny },
   toolbar: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingLeft: spacing.md },

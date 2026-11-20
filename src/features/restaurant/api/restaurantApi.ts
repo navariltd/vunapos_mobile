@@ -227,3 +227,12 @@ export const searchCustomers = (c: C, params: { pos_profile: string; query?: str
 
 /** The signed-in user id (for "my orders"); Frappe returns it as a raw message. */
 export const getLoggedUser = (c: C) => restaurantRawWrite<string>(c, "frappe.auth.get_logged_user");
+
+// ---- receipts ----
+
+export const renderReceipt = (c: C, params: { invoice_doctype: string; invoice_name: string; print_format?: string | null }) =>
+  restaurantRead<{ html: string }>(c, "vunapos.api.print.render_invoice", {
+    invoice_doctype: params.invoice_doctype,
+    invoice_name: params.invoice_name,
+    print_format: params.print_format?.trim() || undefined,
+  });

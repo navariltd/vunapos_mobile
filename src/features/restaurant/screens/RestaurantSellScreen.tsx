@@ -7,6 +7,7 @@ import { Button, IconButton, Searchbar, Text } from "react-native-paper";
 import { useToast } from "@/components/feedback/ToastProvider";
 import { getSession, getTemplateVariants } from "@/features/restaurant/api/restaurantApi";
 import { restaurantErrorMessage } from "@/features/restaurant/api/restaurantClient";
+import { BillSheet } from "@/features/restaurant/components/BillSheet";
 import { ChipRow } from "@/features/restaurant/components/ChipRow";
 import { CustomerPickerSheet } from "@/features/restaurant/components/CustomerPickerSheet";
 import { KitchenTicketSheet } from "@/features/restaurant/components/KitchenTicketSheet";
@@ -23,13 +24,16 @@ import { useRestaurant } from "@/features/restaurant/context/RestaurantContext";
 import { formatMoney, itemImageUrl } from "@/features/restaurant/format";
 import { usePolledResource } from "@/features/restaurant/hooks/usePolledResource";
 import { useSellController } from "@/features/restaurant/hooks/useSellController";
+import { useReceipt } from "@/features/restaurant/hooks/useReceipt";
 import { useVisitActions } from "@/features/restaurant/hooks/useVisitActions";
 import { restaurantCustomerControls } from "@/features/restaurant/logic/customerControls";
 import { unsentCount } from "@/features/restaurant/logic/orderDraft";
 import { selectVisitTable } from "@/features/restaurant/logic/tableTransfer";
+import { draftStore } from "@/features/restaurant/state/draftStore";
 import type {
   MenuItemDTO,
   ModifierGroupDTO,
+  SessionSettlementDTO,
   RestaurantTableDTO,
   TableStatusDTO,
   TemplateVariantDTO,
@@ -73,6 +77,9 @@ export function RestaurantSellScreen() {
   const [waiterOpen, setWaiterOpen] = useState(false);
   const [customerOpen, setCustomerOpen] = useState(false);
   const [ticket, setTicket] = useState<string | null>(null);
+  const [billOpen, setBillOpen] = useState(false);
+  const [settled, setSettled] = useState<SessionSettlementDTO | null>(null);
+  const receipt = useReceipt();
   const { draft, menu, serviceType, setError } = sell;
   const readOnly = Boolean(session && session.status !== "Open");
   const precision = restaurant.currencyPrecision;
@@ -357,6 +364,11 @@ export function RestaurantSellScreen() {
             <Button compact icon="clipboard-text-outline" mode="text" onPress={() => setRoundsOpen(true)}>
               Orders ({session.rounds.filter((round) => round.status !== "Cancelled").length})
             </Button>
+            {session.rounds.some((round) => round.status !== "Cancelled") && !readOnly ? (
+              <Button compact icon="receipt-text-outline" mode="text" onPress={() => setBillOpen(true)}>
+                Bill
+              </Button>
+            ) : null}
             {serviceType?.requires_table && !readOnly ? (
               <>
                 <Button compact disabled={visit.busy} mode="text" onPress={() => startTableAction("transfer")}>
@@ -506,6 +518,61 @@ export function RestaurantSellScreen() {
         title={[serviceType?.service_type_name, tableLabel ? `Table ${tableLabel}` : null].filter(Boolean).join(" · ")}
         visible={sheetOpen}
       />
+      {billOpen && session ? (
+        <BillSheet
+          onClose={() => setBillOpen(false)}
+          onSettled={(settlement) => {
+            setBillOpen(false);
+            setSettled(settlement);
+            draftStore.markOrdersChanged();
+            void sessionResult.refresh();
+          }}
+          session={session}
+        />
+      ) : null}
+      {settled ? (
+        <Sheet
+          description={`${settled.invoice.doctype} ${settled.invoice.name}`}
+          footer={
+            <>
+              <Button disabled={Boolean(receipt.working)} loading={receipt.working === "share"} onPress={() => void receipt.share(settled.invoice)}>
+                Share
+              </Button>
+              <Button
+                disabled={Boolean(receipt.working)}
+                icon="printer"
+                loading={receipt.working === "print"}
+                mode="outlined"
+                onPress={() => void receipt.print(settled.invoice)}
+              >
+                Print
+              </Button>
+              <Button
+                mode="contained"
+                onPress={() => {
+                  setSettled(null);
+                  startNewSale();
+                }}
+              >
+                New sale
+              </Button>
+            </>
+          }
+          onClose={() => {
+            setSettled(null);
+            startNewSale();
+          }}
+          title="Paid"
+          visible
+        >
+          <Text style={[styles.contextText, { color: palette.onSurface }]}>
+            {formatMoney(settled.invoice.totals.rounded_total || settled.invoice.totals.grand_total, currency, precision)} received.
+            {settled.invoice.totals.change_amount ? ` Change: ${formatMoney(settled.invoice.totals.change_amount, currency, precision)}.` : ""}
+          </Text>
+          <Text style={[styles.contextMuted, { color: palette.onSurfaceMuted }]}>The tables are free for the next guests.</Text>
+          {receipt.error ? <Text style={{ color: palette.error }}>{receipt.error}</Text> : null}
+        </Sheet>
+      ) : null}
       {roundsOpen && session ? (
         <RoundsSheet
           busy={visit.busy}

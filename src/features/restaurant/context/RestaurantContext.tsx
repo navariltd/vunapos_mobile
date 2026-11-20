@@ -86,7 +86,8 @@ export function buildRestaurantContext(input: {
     posProfile: profile.name,
     settings: profile.restaurant ?? EMPTY_SETTINGS,
     shift,
-    paymentModes: input.bootstrap.payment_modes ?? profile.modes_of_payment ?? [],
+    // The profile's list says which bank modes need a transaction reference.
+    paymentModes: profile.modes_of_payment ?? input.bootstrap.payment_modes ?? [],
     currency: profile.currency ?? "KES",
     currencyPrecision: profile.currency_precision ?? 2,
     roles,

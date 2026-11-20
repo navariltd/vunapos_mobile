@@ -35,7 +35,8 @@ export function ResetPasswordScreen() {
     try {
       const result = await completePasswordReset(newPassword);
       if (result.ok) {
-        router.replace("/(app)");
+        // The root route picks the Retail or Restaurant workspace for this profile.
+        router.replace("/");
       } else {
         setSubmitError(result.message);
       }

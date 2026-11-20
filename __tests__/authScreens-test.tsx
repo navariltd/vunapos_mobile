@@ -150,7 +150,7 @@ describe('authentication screens', () => {
       await fireEvent.press(screen.getByRole('button', { name: 'Sign in' }));
 
       await waitFor(() => expect(signIn).toHaveBeenCalledWith('cashier@example.com', 'secret'));
-      expect(mockRouter.replace).toHaveBeenCalledWith('/(app)');
+      expect(mockRouter.replace).toHaveBeenCalledWith('/');
     });
 
     it('toggles password visibility without changing the entered password', async () => {

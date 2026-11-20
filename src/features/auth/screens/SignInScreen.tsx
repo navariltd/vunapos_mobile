@@ -37,7 +37,8 @@ export function SignInScreen() {
     try {
       const result = await signIn(email, password);
       if (result.ok) {
-        router.replace("/(app)");
+        // The root route picks the Retail or Restaurant workspace for this profile.
+        router.replace("/");
       } else if ("requiresPasswordReset" in result) {
         router.replace("/(auth)/reset-password");
       } else {

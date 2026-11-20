@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState } from "react";
-import { FlatList, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Button, IconButton, Text } from "react-native-paper";
 
 import { FloorCanvas } from "@/features/restaurant/components/FloorCanvas";
@@ -166,8 +167,10 @@ export function TablePicker({ prompt, selected = [], onPick, onCancel }: TablePi
           />
         </View>
       ) : (
-        <FlatList
+        <FlashList
           contentContainerStyle={styles.list}
+          extraData={[statuses, selected, now]}
+          ItemSeparatorComponent={Separator}
           data={[...floor.tables].sort((a, b) => a.table_label.localeCompare(b.table_label, undefined, { numeric: true }))}
           keyExtractor={(table) => table.name}
           renderItem={({ item }) => (
@@ -183,6 +186,10 @@ export function TablePicker({ prompt, selected = [], onPick, onCancel }: TablePi
       )}
     </View>
   );
+}
+
+function Separator() {
+  return <View style={styles.separator} />;
 }
 
 function TableRow({
@@ -234,7 +241,8 @@ const styles = StyleSheet.create({
   legendDot: { alignItems: "center", borderRadius: 8, height: 16, justifyContent: "center", width: 16 },
   legendItem: { alignItems: "center", flexDirection: "row", gap: 4 },
   legendText: { fontFamily: typography.fontFamily.regular, fontSize: typography.size.small },
-  list: { gap: spacing.xs, padding: spacing.md },
+  list: { padding: spacing.md },
+  separator: { height: spacing.xs },
   prompt: {
     alignItems: "center",
     borderBottomWidth: StyleSheet.hairlineWidth,

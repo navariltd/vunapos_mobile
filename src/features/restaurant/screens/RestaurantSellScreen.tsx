@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, FlatList, Pressable, StyleSheet, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
 import { Button, IconButton, Searchbar, Text } from "react-native-paper";
 
 import { useToast } from "@/components/feedback/ToastProvider";
@@ -451,10 +452,11 @@ export function RestaurantSellScreen() {
               </Button>
             </RestaurantPlaceholder>
           ) : (
-            <FlatList
-              columnWrapperStyle={styles.columns}
+            <FlashList
               contentContainerStyle={styles.grid}
               data={items}
+              // Cells are recycled: re-render them when quantities or busy state change.
+              extraData={[sell.quantities, sell.pendingItem, sell.busy, readOnly]}
               keyboardShouldPersistTaps="handled"
               keyExtractor={(item) => item.item_code}
               ListEmptyComponent={
@@ -462,6 +464,7 @@ export function RestaurantSellScreen() {
               }
               numColumns={2}
               renderItem={({ item }) => (
+                <View style={styles.cell}>
                 <MenuItemCard
                   busy={sell.pendingItem === item.item_code}
                   currency={currency}
@@ -473,6 +476,7 @@ export function RestaurantSellScreen() {
                   precision={precision}
                   quantity={sell.quantities.get(item.item_code) ?? 0}
                 />
+                </View>
               )}
             />
           )}
@@ -679,7 +683,8 @@ const styles = StyleSheet.create({
   cartCount: { alignItems: "center", borderRadius: radii.pill, height: 26, justifyContent: "center", minWidth: 26, paddingHorizontal: 6 },
   cartCountText: { fontFamily: typography.fontFamily.semibold, fontSize: typography.size.small },
   cartText: { flex: 1, fontFamily: typography.fontFamily.semibold, fontSize: typography.size.body },
-  columns: { gap: spacing.sm },
+  // FlashList has no column gap: each cell pads half the gap on every side.
+  cell: { flex: 1, padding: spacing.sm / 2 },
   confirmBar: {
     alignItems: "center",
     borderTopWidth: 1,
@@ -696,7 +701,7 @@ const styles = StyleSheet.create({
   contextMuted: { flex: 1, fontFamily: typography.fontFamily.regular, fontSize: typography.size.small },
   contextRow: { alignItems: "center", flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.md },
   contextText: { fontFamily: typography.fontFamily.medium, fontSize: typography.size.small },
-  grid: { gap: spacing.sm, padding: spacing.md, paddingBottom: 96 },
+  grid: { padding: spacing.md - spacing.sm / 2, paddingBottom: 96 },
   readOnly: { paddingHorizontal: spacing.md, paddingTop: spacing.xs },
   root: { flex: 1 },
   search: { elevation: 0, marginHorizontal: spacing.md, marginBottom: spacing.xs },

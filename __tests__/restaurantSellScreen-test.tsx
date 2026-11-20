@@ -1,8 +1,15 @@
-import { render, screen, waitFor } from "@testing-library/react-native";
+import { act, render, screen, waitFor } from "@testing-library/react-native";
 import { Provider as PaperProvider } from "react-native-paper";
 
 import { RestaurantSellScreen } from "@/features/restaurant/screens/RestaurantSellScreen";
 import { draftStore } from "@/features/restaurant/state/draftStore";
+
+// FlashList measures native layout, which jest cannot; give it a phone-sized viewport.
+jest.mock("@shopify/flash-list/dist/recyclerview/utils/measureLayout", () => {
+  const actual = jest.requireActual("@shopify/flash-list/dist/recyclerview/utils/measureLayout");
+  const box = () => ({ x: 0, y: 0, width: 400, height: 900 });
+  return { ...actual, measureParentSize: jest.fn(box), measureFirstChildLayout: jest.fn(box), measureItemLayout: jest.fn(box) };
+});
 
 const mockParams: { session?: string } = {};
 jest.mock("expo-router", () => ({
@@ -61,6 +68,13 @@ jest.mock("@/features/restaurant/context/RestaurantContext", () => ({
   useRestaurant: () => mockRestaurant,
 }));
 
+/** FlashList finishes its first layout asynchronously; let it settle inside act. */
+async function flushListLayout() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
 describe("restaurant Sell screen", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -81,6 +95,7 @@ describe("restaurant Sell screen", () => {
     );
     await waitFor(() => expect(screen.getByText("Beef Burger")).toBeTruthy());
     expect(mockApi.getMenu).toHaveBeenCalledTimes(1);
+    await flushListLayout();
   });
 
   it("asks for a table first on a dine-in default without looping", async () => {
@@ -101,6 +116,7 @@ describe("restaurant Sell screen", () => {
     await waitFor(() => expect(screen.getByText("Choose a table for Dine In")).toBeTruthy());
     await waitFor(() => expect(mockApi.getTableStatus).toHaveBeenCalled());
     expect(mockApi.getMenu).not.toHaveBeenCalled();
+    await flushListLayout();
     mockRestaurant.settings.service_types[0].is_default = false;
     mockRestaurant.settings.service_types[1].is_default = true;
   });
@@ -120,6 +136,7 @@ describe("restaurant Sell screen", () => {
     );
     await waitFor(() => expect(screen.getByText("Beef Burger")).toBeTruthy());
     expect(mockApi.getMenu).toHaveBeenCalledTimes(1);
+    await flushListLayout();
     delete mockParams.session;
   });
 });

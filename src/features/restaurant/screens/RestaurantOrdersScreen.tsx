@@ -1,7 +1,8 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, RefreshControl, StyleSheet, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { Pressable, RefreshControl, StyleSheet, View } from "react-native";
 import { Button, IconButton, Searchbar, Text } from "react-native-paper";
 
 import { useToast } from "@/components/feedback/ToastProvider";
@@ -110,9 +111,11 @@ export function RestaurantOrdersScreen() {
           </Button>
         </RestaurantPlaceholder>
       ) : (
-        <FlatList
+        <FlashList
           contentContainerStyle={styles.list}
           data={visible}
+          extraData={now}
+          ItemSeparatorComponent={Separator}
           keyExtractor={(order) => order.name}
           ListEmptyComponent={
             isFiltered(filter) ? (
@@ -182,6 +185,10 @@ function OrderRow({
   );
 }
 
+function Separator() {
+  return <View style={styles.separator} />;
+}
+
 function Badge({ label }: { label: string }) {
   const { palette } = useAppearance();
   return (
@@ -195,7 +202,8 @@ const styles = StyleSheet.create({
   badge: { borderRadius: radii.pill, borderWidth: 1, paddingHorizontal: spacing.xs, paddingVertical: 2 },
   badgeText: { fontFamily: typography.fontFamily.medium, fontSize: typography.size.tiny },
   badges: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  list: { flexGrow: 1, gap: spacing.xs, padding: spacing.md },
+  list: { padding: spacing.md },
+  separator: { height: spacing.xs },
   meta: { fontFamily: typography.fontFamily.regular, fontSize: typography.size.small },
   root: { flex: 1 },
   row: { alignItems: "center", borderRadius: radii.lg, borderWidth: 1, flexDirection: "row", gap: spacing.sm, padding: spacing.sm },

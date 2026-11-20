@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
-import { FlatList, Pressable, RefreshControl, StyleSheet, useWindowDimensions, View } from "react-native";
+import { FlashList } from "@shopify/flash-list";
+import { Pressable, RefreshControl, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Button, Text } from "react-native-paper";
 
 import { getKitchenBoard } from "@/features/restaurant/api/restaurantApi";
@@ -102,10 +103,10 @@ export function RestaurantKitchenScreen() {
           {history ? "Showing done" : "Show done"}
         </Button>
       </View>
-      <FlatList
-        columnWrapperStyle={columns > 1 ? styles.columns : undefined}
+      <FlashList
         contentContainerStyle={styles.list}
         data={board.data.tickets}
+        extraData={[now, actions.busyTicket]}
         key={columns}
         keyExtractor={(ticket) => ticket.name}
         ListEmptyComponent={
@@ -125,7 +126,9 @@ export function RestaurantKitchenScreen() {
         numColumns={columns}
         refreshControl={<RefreshControl onRefresh={() => void board.refresh()} refreshing={false} />}
         renderItem={({ item }) => (
-          <TicketCard actions={actions} now={now} onOpen={() => setOpened(item.name)} ticket={item} />
+          <View style={styles.cell}>
+            <TicketCard actions={actions} now={now} onOpen={() => setOpened(item.name)} ticket={item} />
+          </View>
         )}
       />
       {opened ? (
@@ -209,12 +212,13 @@ const styles = StyleSheet.create({
   cardActions: { paddingHorizontal: spacing.sm, paddingBottom: spacing.sm },
   cardBody: { gap: 6, padding: spacing.sm },
   cardHeader: { flexDirection: "row", gap: spacing.xs },
-  columns: { gap: spacing.sm },
+  // FlashList has no column gap: each cell pads half the gap on every side.
+  cell: { flex: 1, padding: spacing.sm / 2 },
   flex: { flex: 1 },
   headerRight: { alignItems: "flex-end", gap: 4 },
   item: { fontFamily: typography.fontFamily.semibold, fontSize: 15 },
   line: { flexDirection: "row", gap: spacing.xs },
-  list: { flexGrow: 1, gap: spacing.sm, padding: spacing.md },
+  list: { padding: spacing.md - spacing.sm / 2 },
   meta: { fontFamily: typography.fontFamily.regular, fontSize: typography.size.small },
   minutes: { fontFamily: typography.fontFamily.semibold, fontSize: typography.size.small },
   more: { marginTop: spacing.xs },

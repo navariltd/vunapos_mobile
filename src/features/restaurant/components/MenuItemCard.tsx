@@ -99,13 +99,13 @@ export function MenuItemCard({
 const styles = StyleSheet.create({
   add: { alignItems: "center", borderRadius: radii.md, height: 32, justifyContent: "center", minWidth: 32, paddingHorizontal: 6 },
   body: { flex: 1, gap: 4, padding: spacing.sm },
-  card: { borderRadius: radii.lg, borderWidth: 1.5, flex: 1, overflow: "hidden" },
+  card: { borderRadius: radii.lg, borderWidth: 1.5, overflow: "hidden" },
   image: { aspectRatio: 1.6, width: "100%" },
   listPrice: { fontFamily: typography.fontFamily.regular, fontSize: typography.size.tiny, textDecorationLine: "line-through" },
   name: { fontFamily: typography.fontFamily.semibold, fontSize: typography.size.body, lineHeight: 19 },
   note: { fontFamily: typography.fontFamily.regular, fontSize: typography.size.tiny },
   price: { fontFamily: typography.fontFamily.semibold, fontSize: typography.size.small },
-  priceRow: { alignItems: "flex-end", flexDirection: "row", gap: spacing.xs, justifyContent: "space-between", marginTop: "auto" },
+  priceRow: { alignItems: "flex-end", flexDirection: "row", gap: spacing.xs, justifyContent: "space-between", marginTop: 4 },
   prices: { flex: 1 },
   quantity: { fontFamily: typography.fontFamily.semibold, fontSize: typography.size.small },
 });

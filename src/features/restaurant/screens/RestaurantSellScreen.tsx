@@ -369,7 +369,7 @@ export function RestaurantSellScreen() {
         </View>
         {session ? (
           // More actions than fit a phone's width: the row scrolls sideways.
-          <ScrollView contentContainerStyle={styles.actionRow} horizontal showsHorizontalScrollIndicator={false}>
+          <ScrollView contentContainerStyle={styles.actionRow} horizontal showsHorizontalScrollIndicator={false} style={styles.actionScroller}>
             <Button compact icon="clipboard-text-outline" mode="text" onPress={() => setRoundsOpen(true)}>
               Orders ({session.rounds.filter((round) => round.status !== "Cancelled").length})
             </Button>
@@ -694,8 +694,9 @@ const styles = StyleSheet.create({
   cartCount: { alignItems: "center", borderRadius: radii.pill, height: 26, justifyContent: "center", minWidth: 26, paddingHorizontal: 6 },
   cartCountText: { fontFamily: typography.fontFamily.semibold, fontSize: typography.size.small },
   cartText: { flex: 1, fontFamily: typography.fontFamily.semibold, fontSize: typography.size.body },
-  // FlashList has no column gap: each cell pads half the gap on every side.
-  cell: { flex: 1, padding: spacing.sm / 2 },
+  // FlashList has no column gap: each cell pads half the gap on every side. No flex:
+  // FlashList sizes the column, and flex would stretch cells vertically and break measuring.
+  cell: { padding: spacing.sm / 2 },
   confirmBar: {
     alignItems: "center",
     borderTopWidth: 1,
@@ -708,6 +709,8 @@ const styles = StyleSheet.create({
   guests: { alignItems: "center", flexDirection: "row", marginLeft: "auto" },
   shrink: { flexShrink: 1 },
   actionRow: { alignItems: "center", gap: 2, paddingHorizontal: spacing.xs },
+  // ScrollViews grow by default; this row must keep its own height so the menu keeps the rest.
+  actionScroller: { flexGrow: 0 },
   context: { borderBottomWidth: StyleSheet.hairlineWidth, paddingBottom: spacing.xs },
   contextMuted: { flex: 1, fontFamily: typography.fontFamily.regular, fontSize: typography.size.small },
   contextRow: { alignItems: "center", flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.md },

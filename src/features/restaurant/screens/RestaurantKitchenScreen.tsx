@@ -216,12 +216,13 @@ function TicketCard({
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radii.lg, borderWidth: 2, flex: 1, overflow: "hidden" },
+  card: { borderRadius: radii.lg, borderWidth: 2, overflow: "hidden" },
   cardActions: { paddingHorizontal: spacing.sm, paddingBottom: spacing.sm },
   cardBody: { gap: 6, padding: spacing.sm },
   cardHeader: { flexDirection: "row", gap: spacing.xs },
-  // FlashList has no column gap: each cell pads half the gap on every side.
-  cell: { flex: 1, padding: spacing.sm / 2 },
+  // FlashList has no column gap: each cell pads half the gap on every side. No flex:
+  // FlashList sizes the column, and flex would stretch cells vertically and break measuring.
+  cell: { padding: spacing.sm / 2 },
   flex: { flex: 1 },
   headerRight: { alignItems: "flex-end", gap: 4 },
   item: { fontFamily: typography.fontFamily.semibold, fontSize: 15 },

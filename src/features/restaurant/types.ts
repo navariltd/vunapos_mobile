@@ -185,6 +185,8 @@ export type MenuDTO = {
   items: MenuItemDTO[];
   available_item_codes?: string[] | null;
   modifier_groups?: Record<string, ModifierGroupDTO[]>;
+  /** Seconds until timed availability changes and the menu should be reloaded. */
+  availability_refresh_after?: number | null;
 };
 
 export type TemplateVariantDTO = MenuItemDTO & {

@@ -1,5 +1,5 @@
-import { RestaurantPlaceholder } from "@/features/restaurant/components/RestaurantPlaceholder";
+import { RestaurantSellScreen } from "@/features/restaurant/screens/RestaurantSellScreen";
 
-export default function SellPlaceholder() {
-  return <RestaurantPlaceholder icon="silverware-fork-knife" title="Sell" description="Coming soon." />;
+export default function Sell() {
+  return <RestaurantSellScreen />;
 }

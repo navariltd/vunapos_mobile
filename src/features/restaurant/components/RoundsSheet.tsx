@@ -10,6 +10,7 @@ import { radii, spacing, typography } from "@/theme/tokens";
 
 /** Everything placed on a visit, round by round, with each round's kitchen tickets. */
 export function RoundsSheet({
+  visible,
   session,
   currency,
   precision,
@@ -20,6 +21,8 @@ export function RoundsSheet({
   onOpenTicket,
   onClose,
 }: {
+  /** Kept mounted and toggled: unmounting a visible iOS modal can leave its window behind. */
+  visible: boolean;
   session: RestaurantSessionDTO;
   currency: string;
   precision: number;
@@ -50,7 +53,7 @@ export function RoundsSheet({
       }
       onClose={onClose}
       title="Placed orders"
-      visible
+      visible={visible}
     >
       {!session.rounds.length ? <Text style={{ color: palette.onSurfaceMuted }}>Nothing has been placed yet.</Text> : null}
       {session.rounds.map((round, index) => {

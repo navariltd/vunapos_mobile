@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FlashList } from "@shopify/flash-list";
 import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
@@ -42,6 +42,9 @@ import type {
 import { useAppearance } from "@/theme/AppearanceProvider";
 import { radii, spacing, typography } from "@/theme/tokens";
 
+/** Long enough for an iOS modal or tab transition to finish before presenting another. */
+const MODAL_SETTLE_MS = 400;
+
 /**
  * Sell: choose the service type (and a table when it needs one), add items from
  * the menu for that context, and place the round. With `?session=` it takes the
@@ -82,11 +85,27 @@ export function RestaurantSellScreen() {
   const [settled, setSettled] = useState<SessionSettlementDTO | null>(null);
   const receipt = useReceipt();
 
-  // Opened from Orders: show the visit's placed orders first, until closed.
-  const showRounds = roundsOpen || (params.view === "orders" && Boolean(session));
+  // Opened from Orders: show the visit's placed orders once Sell is focused and the
+  // tab switch has settled. iOS can fail to present a modal mid-transition yet leave
+  // its invisible window over the screen, which swallows every touch.
+  const wantsOrders = params.view === "orders" && Boolean(session);
+  useFocusEffect(
+    useCallback(() => {
+      if (!wantsOrders) return;
+      const timer = setTimeout(() => {
+        setRoundsOpen(true);
+        router.setParams({ view: "" });
+      }, MODAL_SETTLE_MS);
+      return () => clearTimeout(timer);
+    }, [wantsOrders]),
+  );
   function closeRounds() {
     setRoundsOpen(false);
-    if (params.view) router.setParams({ view: "" });
+  }
+  /** Present the next sheet only after the current one has finished dismissing. */
+  function afterRoundsClose(next: () => void) {
+    setRoundsOpen(false);
+    setTimeout(next, MODAL_SETTLE_MS);
   }
   const { draft, menu, serviceType, setError } = sell;
   const readOnly = Boolean(session && session.status !== "Open");
@@ -538,7 +557,8 @@ export function RestaurantSellScreen() {
           onClose={() => setBillOpen(false)}
           onSettled={(settlement) => {
             setBillOpen(false);
-            setSettled(settlement);
+            // Let the bill sheet finish dismissing before the receipt sheet presents.
+            setTimeout(() => setSettled(settlement), MODAL_SETTLE_MS);
             draftStore.markOrdersChanged();
             void sessionResult.refresh();
           }}
@@ -588,20 +608,18 @@ export function RestaurantSellScreen() {
           {receipt.error ? <Text style={{ color: palette.error }}>{receipt.error}</Text> : null}
         </Sheet>
       ) : null}
-      {showRounds && session ? (
+      {session ? (
         <RoundsSheet
           busy={visit.busy}
           canCancel={!readOnly && !session.rounds.some((round) => round.status !== "Cancelled")}
           currency={currency}
-          onAssignWaiter={() => setWaiterOpen(true)}
+          onAssignWaiter={() => afterRoundsClose(() => setWaiterOpen(true))}
           onCancelVisit={cancelVisit}
           onClose={closeRounds}
-          onOpenTicket={(name) => {
-            closeRounds();
-            setTicket(name);
-          }}
+          onOpenTicket={(name) => afterRoundsClose(() => setTicket(name))}
           precision={precision}
           session={session}
+          visible={roundsOpen}
         />
       ) : null}
       {waiterOpen && session ? (

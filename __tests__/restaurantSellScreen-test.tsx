@@ -4,17 +4,15 @@ import { Provider as PaperProvider } from "react-native-paper";
 import { RestaurantSellScreen } from "@/features/restaurant/screens/RestaurantSellScreen";
 import { draftStore } from "@/features/restaurant/state/draftStore";
 
-// FlashList measures native layout, which jest cannot; give it a phone-sized viewport.
-jest.mock("@shopify/flash-list/dist/recyclerview/utils/measureLayout", () => {
-  const actual = jest.requireActual("@shopify/flash-list/dist/recyclerview/utils/measureLayout");
-  const box = () => ({ x: 0, y: 0, width: 400, height: 900 });
-  return { ...actual, measureParentSize: jest.fn(box), measureFirstChildLayout: jest.fn(box), measureItemLayout: jest.fn(box) };
-});
+// FlashList 2.3 ships ES modules jest-expo does not transform; these tests are about
+// Sell's behaviour, so FlatList (same list API) stands in for it.
+jest.mock("@shopify/flash-list", () => ({ FlashList: jest.requireActual("react-native").FlatList }));
 
 const mockParams: { session?: string; view?: string } = {};
 jest.mock("expo-router", () => ({
   router: { setParams: jest.fn(), navigate: jest.fn(), push: jest.fn() },
   useIsFocused: () => true,
+  useFocusEffect: (effect: () => void | (() => void)) => jest.requireActual("react").useEffect(effect, [effect]),
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock("@/components/feedback/ToastProvider", () => ({

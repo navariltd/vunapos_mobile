@@ -1,5 +1,5 @@
-import { RestaurantPlaceholder } from "@/features/restaurant/components/RestaurantPlaceholder";
+import { RestaurantKitchenScreen } from "@/features/restaurant/screens/RestaurantKitchenScreen";
 
-export default function KitchenPlaceholder() {
-  return <RestaurantPlaceholder icon="chef-hat" title="Kitchen" description="Coming soon." />;
+export default function Kitchen() {
+  return <RestaurantKitchenScreen />;
 }

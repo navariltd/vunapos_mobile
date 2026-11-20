@@ -46,7 +46,6 @@ export function KitchenTicketSheet({
   return (
     <Sheet
       description={ticket ? `${ticket.station_label} · ${ticket.table_labels ? `Table ${ticket.table_labels} · ` : ""}${ticket.service_type ?? ""}` : "Kitchen ticket"}
-      footer={ticket && renderActions ? renderActions(ticket, result.refresh) : undefined}
       onClose={onClose}
       title={active}
       visible
@@ -114,6 +113,7 @@ export function KitchenTicketSheet({
                 </View>
               );
             })}
+          {renderActions ? renderActions(ticket, result.refresh) : null}
           {ticket.actions?.length ? (
             <View style={styles.history}>
               <Text style={[styles.item, { color: palette.onSurface }]}>History</Text>

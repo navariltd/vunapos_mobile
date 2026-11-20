@@ -1,4 +1,5 @@
 import {
+  restaurantRawWrite,
   restaurantRead,
   restaurantWrite,
   type RestaurantConnection as C,
@@ -203,5 +204,17 @@ export const verifyManagerPin = (c: C, params: { pos_profile: string; pin: strin
   restaurantWrite<{ token: string; manager?: string; display_name?: string; expires_in?: number }>(
     c,
     "vunapos.api.pin.verify_manager",
+    params,
+  );
+
+// ---- the user's own POS shift ----
+
+export const openShift = (
+  c: C,
+  params: { pos_profile: string; opening_balance: { mode_of_payment: string; opening_amount: number }[] },
+) =>
+  restaurantRawWrite<{ success: boolean; name: string; pos_profile: string; message?: string }>(
+    c,
+    "vunapos.api.pos_entry.create_opening_entry",
     params,
   );

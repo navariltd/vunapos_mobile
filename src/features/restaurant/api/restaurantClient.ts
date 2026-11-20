@@ -130,3 +130,17 @@ export async function restaurantWrite<T>(
   }
   return envelope.data;
 }
+
+/** POST a JSON method that returns Frappe's raw `message` instead of the VunaPOS envelope. */
+export async function restaurantRawWrite<T>(
+  connection: RestaurantConnection,
+  fullMethod: string,
+  params: WriteParams = {},
+  signal?: AbortSignal,
+): Promise<T> {
+  try {
+    return await postFrappeJsonMethod<T>(connection.companyUrl, connection.sessionId, fullMethod, definedOnly(params), signal);
+  } catch (error) {
+    throw toRestaurantError(error);
+  }
+}

@@ -224,3 +224,6 @@ export const openShift = (
 
 export const searchCustomers = (c: C, params: { pos_profile: string; query?: string; limit?: number }) =>
   restaurantRead<RestaurantCustomerDTO[]>(c, "vunapos.api.customer.search_customers", params);
+
+/** The signed-in user id (for "my orders"); Frappe returns it as a raw message. */
+export const getLoggedUser = (c: C) => restaurantRawWrite<string>(c, "frappe.auth.get_logged_user");

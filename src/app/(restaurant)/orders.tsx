@@ -1,5 +1,5 @@
-import { RestaurantPlaceholder } from "@/features/restaurant/components/RestaurantPlaceholder";
+import { RestaurantOrdersScreen } from "@/features/restaurant/screens/RestaurantOrdersScreen";
 
-export default function OrdersPlaceholder() {
-  return <RestaurantPlaceholder icon="clipboard-text-outline" title="Orders" description="Coming soon." />;
+export default function Orders() {
+  return <RestaurantOrdersScreen />;
 }

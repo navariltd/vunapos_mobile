@@ -74,7 +74,7 @@ describe("deriveTableStatuses", () => {
 		};
 		const staff = deriveTableStatuses([{ table: "p1", table_label: "P1", floor: "f", seats: 2, status: "Paid", session, orders: [] }]);
 		expect(statusFor(staff, "p1").kind).toBe("paid");
-		expect(tableStatusLines(statusFor(staff, "p1"), 2, new Date("2026-11-17T12:10:00"))[0]).toBe("Paid · 10 min");
+		expect(tableStatusLines(statusFor(staff, "p1"), 2, new Date("2026-11-17T12:10:00"))[0]).toBe("Paid · 10m");
 		const kiosk = deriveTableStatuses([{ table: "p1", table_label: "P1", floor: "f", seats: 2, status: "Paid", session: null, orders: [] }]);
 		expect(statusFor(kiosk, "p1").kind).toBe("paid");
 		expect(legendStatuses(staff.values())).toEqual(["paid"]);
@@ -92,11 +92,11 @@ describe("legendStatuses", () => {
 
 describe("elapsedLabel", () => {
 	const now = new Date("2026-10-27T13:05:30");
-	it("counts minutes, then hours and minutes", () => {
+	it("is compact: minutes while fresh, then the clock time", () => {
 		expect(elapsedLabel("2026-10-27 13:05:10", now)).toBe("now");
-		expect(elapsedLabel("2026-10-27 12:53:00.123456", now)).toBe("12 min");
-		expect(elapsedLabel("2026-10-27 12:05:00", now)).toBe("1 h");
-		expect(elapsedLabel("2026-10-27 10:40:00", now)).toBe("2 h 25 min");
+		expect(elapsedLabel("2026-10-27 12:53:00.123456", now)).toBe("12m");
+		expect(elapsedLabel("2026-10-27 12:05:00", now)).toBe("12:05");
+		expect(elapsedLabel("2026-10-26 22:40:00", now)).toBe("Yest.");
 	});
 
 	it("parses the server's microsecond timestamps", () => {
@@ -151,13 +151,13 @@ describe("table text", () => {
 
 	it("puts the status word first, then guests and waiter", () => {
 		expect(tableStatusLines(statusFor(statuses, "t1"), 4, now)).toEqual(["Free", "4 seats"]);
-		expect(tableStatusLines(statusFor(statuses, "t2"), 6, now)).toEqual(["Occupied · 45 min", "6 guests · Jane +1"]);
-		expect(tableStatusLines(statusFor(statuses, "t3"), 2, now)).toEqual(["Occupied · 1 h 45 min", "mary"]);
+		expect(tableStatusLines(statusFor(statuses, "t2"), 6, now)).toEqual(["Occupied · 45m", "6 guests · Jane +1"]);
+		expect(tableStatusLines(statusFor(statuses, "t3"), 2, now)).toEqual(["Occupied · 11:00", "mary"]);
 	});
 
 	it("gives screen readers the full picture", () => {
 		expect(tableAccessibleName("T2", 6, statusFor(statuses, "t2"), now)).toBe(
-			"Table T2, 6 seats, occupied, 6 guests, waiter Jane Wanjiku, Brian Otieno, open 45 min",
+			"Table T2, 6 seats, occupied, 6 guests, waiter Jane Wanjiku, Brian Otieno, opened 45 min ago",
 		);
 		expect(tableAccessibleName("T1", 1, statusFor(statuses, "t1"), now)).toBe("Table T1, 1 seat, free");
 	});

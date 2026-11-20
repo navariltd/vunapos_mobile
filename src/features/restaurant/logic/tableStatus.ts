@@ -1,4 +1,5 @@
 import type { ServiceType as CachedServiceType , TableOrderRefDTO, TableStatusDTO } from "@/features/restaurant/types";
+import { timeSince } from "@/features/restaurant/logic/timeLabels";
 
 // Status kinds drawn on the floor. Colours come from design decision 13; later
 // stages add "bill-requested", "in-kitchen", "served" and "reserved". "paid" is a
@@ -73,22 +74,11 @@ export function legendStatuses(views: Iterable<TableStatusView>): TableStatusKin
 	return TABLE_STATUS_ORDER.filter((kind) => used.has(kind));
 }
 
-// Server datetimes are naive "YYYY-MM-DD HH:MM:SS[.ffffff]" in site time. The
-// JavaScript date format allows at most milliseconds, so the microseconds go.
-export function parseServerDatetime(value: string): Date {
-	return new Date(value.replace(" ", "T").replace(/(\.\d{3})\d+$/, "$1"));
-}
+export { parseServerDatetime } from "@/features/restaurant/logic/timeLabels";
 
+/** Compact age for a table on the floor plan: "now" · "12m" · "09:42" · "Yest." · "Mon" · "12 Nov". */
 export function elapsedLabel(openedAt: string | null, now: Date): string | null {
-	if (!openedAt) return null;
-	const opened = parseServerDatetime(openedAt);
-	if (Number.isNaN(opened.getTime())) return null;
-	const minutes = Math.max(0, Math.floor((now.getTime() - opened.getTime()) / 60000));
-	if (minutes < 1) return "now";
-	if (minutes < 60) return `${minutes} min`;
-	const hours = Math.floor(minutes / 60);
-	const rest = minutes % 60;
-	return rest ? `${hours} h ${rest} min` : `${hours} h`;
+	return timeSince(openedAt, now, { compact: true });
 }
 
 export type TableTapAction =
@@ -154,8 +144,9 @@ export function tableAccessibleName(label: string, seats: number, view: TableSta
 		const guests = guestsLabel(view.guests);
 		if (guests) parts.push(guests);
 		if (view.waiters.length) parts.push(`waiter ${view.waiters.join(", ")}`);
-		const elapsed = elapsedLabel(view.openedAt, now);
-		if (elapsed) parts.push(elapsed === "now" ? "opened just now" : `open ${elapsed}`);
+		const since = timeSince(view.openedAt, now);
+		// "opened 12 min ago" · "open since 09:42" · "opened yesterday 18:05" · "opened Mon 08:00"
+		if (since) parts.push(since.startsWith("Since") ? `open ${since.toLowerCase()}` : `opened ${since.replace(/^(Just|Yesterday)/, (word) => word.toLowerCase())}`);
 	}
 	return parts.join(", ");
 }

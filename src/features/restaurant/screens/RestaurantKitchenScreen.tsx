@@ -12,7 +12,7 @@ import { useRestaurant } from "@/features/restaurant/context/RestaurantContext";
 import { useKitchenActions } from "@/features/restaurant/hooks/useKitchenActions";
 import { useNow } from "@/features/restaurant/hooks/useNow";
 import { usePolledResource } from "@/features/restaurant/hooks/usePolledResource";
-import { parseServerDatetime } from "@/features/restaurant/logic/tableStatus";
+import { minutesSince, timeSince } from "@/features/restaurant/logic/timeLabels";
 import { kitchenStatusTone } from "@/features/restaurant/theme";
 import type { KitchenTicketDTO } from "@/features/restaurant/types";
 import { useAppearance } from "@/theme/AppearanceProvider";
@@ -165,8 +165,9 @@ function TicketCard({
 }) {
   const { appearance, palette } = useAppearance();
   const tone = kitchenStatusTone(ticket.status, appearance === "dark");
-  const minutes = Math.max(0, Math.floor((now.getTime() - parseServerDatetime(ticket.sent_at).getTime()) / 60000));
+  const minutes = minutesSince(ticket.sent_at, now) ?? 0;
   const late = minutes >= 20 && !["Ready", "Served", "Completed", "Cancelled"].includes(ticket.status);
+  const sent = timeSince(ticket.sent_at, now);
   const where = ticket.table_labels ? `Table ${ticket.table_labels}` : ticket.service_type || ticket.restaurant_session;
 
   return (
@@ -184,7 +185,7 @@ function TicketCard({
             <View style={[styles.status, { backgroundColor: tone.fill, borderColor: tone.stroke }]}>
               <Text style={[styles.statusText, { color: palette.onSurface }]}>{ticket.status}</Text>
             </View>
-            <Text style={[styles.minutes, { color: late ? palette.error : palette.onSurfaceMuted }]}>{minutes} min</Text>
+            <Text style={[styles.minutes, { color: late ? palette.error : palette.onSurfaceMuted }]}>{sent}</Text>
           </View>
         </View>
         {ticket.remake_of ? <Text style={[styles.meta, { color: palette.warning }]}>Replacement for {ticket.remake_of}</Text> : null}

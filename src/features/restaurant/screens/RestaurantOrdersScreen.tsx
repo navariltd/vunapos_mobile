@@ -21,7 +21,8 @@ import {
   isPaidKioskOrder,
   type OrdersFilter,
 } from "@/features/restaurant/logic/ordersFilter";
-import { elapsedLabel, sortedServiceTypes } from "@/features/restaurant/logic/tableStatus";
+import { sortedServiceTypes } from "@/features/restaurant/logic/tableStatus";
+import { timeSince } from "@/features/restaurant/logic/timeLabels";
 import { kitchenStatusTone } from "@/features/restaurant/theme";
 import type { RestaurantOrderSummaryDTO } from "@/features/restaurant/types";
 import { useAppearance } from "@/theme/AppearanceProvider";
@@ -148,7 +149,7 @@ function OrderRow({
 }) {
   const { appearance, palette } = useAppearance();
   const service = serviceTypes.find((row) => row.name === order.service_type)?.service_type_name ?? order.service_type;
-  const elapsed = elapsedLabel(order.opened_at, now);
+  const elapsed = timeSince(order.opened_at, now);
   const prep = order.preparation_status && order.preparation_status !== "No preparation" ? order.preparation_status : null;
   const tone = prep ? kitchenStatusTone(prep, appearance === "dark") : null;
   const title = order.table_label ? `Table ${order.table_label}` : order.order_number ? `Order ${order.order_number}` : service;

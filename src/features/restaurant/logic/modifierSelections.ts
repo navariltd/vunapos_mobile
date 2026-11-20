@@ -38,3 +38,37 @@ export function modifierSelectionError(
   }
   return null;
 }
+
+type Choice = { group: string; option: string };
+
+/**
+ * Tap an option: a single-choice group swaps its choice, a multi-choice group
+ * adds it until its maximum, and tapping a chosen option removes it.
+ */
+export function toggleModifier(groups: ModifierGroupDTO[], selected: Choice[], group: string, option: string): Choice[] {
+  const definition = groups.find((row) => row.name === group);
+  if (!definition) return selected;
+  const chosen = selected.some((choice) => choice.group === group && choice.option === option);
+  if (chosen) return selected.filter((choice) => !(choice.group === group && choice.option === option));
+  const available = definition.options.some((row) => row.name === option && row.available);
+  if (!available) return selected;
+  if (definition.max_selections === 1) {
+    return [...selected.filter((choice) => choice.group !== group), { group, option }];
+  }
+  const inGroup = selected.filter((choice) => choice.group === group).length;
+  return inGroup >= definition.max_selections ? selected : [...selected, { group, option }];
+}
+
+/** The chosen options with their labels and the extra each adds to one unit. */
+export function describeModifiers(groups: ModifierGroupDTO[], selected: Choice[]) {
+  return groups.flatMap((group) =>
+    group.options
+      .filter((option) => selected.some((choice) => choice.group === group.name && choice.option === option.name))
+      .map((option) => ({
+        group: group.name,
+        option: option.name,
+        label: `${group.label}: ${option.label}`,
+        extra_rate: option.addon_item ? option.rate * option.addon_qty : 0,
+      })),
+  );
+}

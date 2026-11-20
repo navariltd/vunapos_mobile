@@ -1,23 +1,32 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, View } from "react-native";
 import { Button, Searchbar, Text } from "react-native-paper";
 
 import { useToast } from "@/components/feedback/ToastProvider";
-import { getSession } from "@/features/restaurant/api/restaurantApi";
+import { getSession, getTemplateVariants } from "@/features/restaurant/api/restaurantApi";
+import { restaurantErrorMessage } from "@/features/restaurant/api/restaurantClient";
 import { ChipRow } from "@/features/restaurant/components/ChipRow";
 import { KitchenRoutingSheet } from "@/features/restaurant/components/KitchenRoutingSheet";
 import { MenuItemCard } from "@/features/restaurant/components/MenuItemCard";
+import { ModifierPickerSheet } from "@/features/restaurant/components/ModifierPickerSheet";
 import { OrderSheet } from "@/features/restaurant/components/OrderSheet";
 import { RestaurantPlaceholder } from "@/features/restaurant/components/RestaurantPlaceholder";
 import { TablePicker } from "@/features/restaurant/components/TablePicker";
+import { VariantPickerSheet } from "@/features/restaurant/components/VariantPickerSheet";
 import { useRestaurant } from "@/features/restaurant/context/RestaurantContext";
 import { formatMoney, itemImageUrl } from "@/features/restaurant/format";
 import { usePolledResource } from "@/features/restaurant/hooks/usePolledResource";
 import { useSellController } from "@/features/restaurant/hooks/useSellController";
 import { unsentCount } from "@/features/restaurant/logic/orderDraft";
-import type { MenuItemDTO, RestaurantTableDTO, TableStatusDTO } from "@/features/restaurant/types";
+import type {
+  MenuItemDTO,
+  ModifierGroupDTO,
+  RestaurantTableDTO,
+  TableStatusDTO,
+  TemplateVariantDTO,
+} from "@/features/restaurant/types";
 import { useAppearance } from "@/theme/AppearanceProvider";
 import { radii, spacing, typography } from "@/theme/tokens";
 
@@ -43,6 +52,14 @@ export function RestaurantSellScreen() {
   const [query, setQuery] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [pickingTable, setPickingTable] = useState(false);
+  const [variantsFor, setVariantsFor] = useState<{
+    item: MenuItemDTO;
+    variants: TemplateVariantDTO[];
+    loading: boolean;
+    error: string | null;
+  } | null>(null);
+  const [customizing, setCustomizing] = useState<{ item: MenuItemDTO; groups: ModifierGroupDTO[] } | null>(null);
+  const variantRequest = useRef(0);
   const { draft, menu, serviceType, setError } = sell;
   const readOnly = Boolean(session && session.status !== "Open");
   const precision = restaurant.currencyPrecision;
@@ -147,12 +164,48 @@ export function RestaurantSellScreen() {
     ? sell.pricedInvoice.totals.rounded_total || sell.pricedInvoice.totals.grand_total
     : sell.localSubtotal;
 
+  function modifierGroupsFor(item: MenuItemDTO) {
+    const groups = menu.menu?.modifier_groups;
+    return groups?.[item.item_code] ?? (item.variant_of ? groups?.[item.variant_of] : undefined) ?? [];
+  }
+
+  /** Templates open their variants; items with modifier groups open the picker; others are added. */
   function tapItem(item: MenuItemDTO) {
-    if (item.has_variants || menu.menu?.modifier_groups?.[item.item_code]?.length) {
-      toast.info("Options and variants are coming in the next update.");
+    if (item.has_variants) {
+      void loadVariants(item);
+      return;
+    }
+    const groups = modifierGroupsFor(item);
+    if (groups.length) {
+      setCustomizing({ item, groups });
       return;
     }
     void sell.addItem(item);
+  }
+
+  async function loadVariants(item: MenuItemDTO) {
+    const request = ++variantRequest.current;
+    setVariantsFor({ item, variants: [], loading: true, error: null });
+    try {
+      const response = await getTemplateVariants(restaurant.connection, {
+        template_item_code: item.item_code,
+        pos_profile: restaurant.posProfile,
+        customer: session?.customer ?? sell.header?.customer,
+        price_list: session?.selling_price_list,
+      });
+      if (request !== variantRequest.current) return;
+      const allowed = menu.menu?.available_item_codes;
+      setVariantsFor({
+        item,
+        variants: response.variants.filter((row) => !allowed || allowed.includes(row.item_code)),
+        loading: false,
+        error: null,
+      });
+    } catch (caught) {
+      if (request === variantRequest.current) {
+        setVariantsFor({ item, variants: [], loading: false, error: restaurantErrorMessage(caught, "Could not load the options.") });
+      }
+    }
   }
 
   return (
@@ -255,7 +308,7 @@ export function RestaurantSellScreen() {
                 <MenuItemCard
                   busy={sell.pendingItem === item.item_code}
                   currency={currency}
-                  customizable={Boolean(menu.menu?.modifier_groups?.[item.item_code]?.length)}
+                  customizable={modifierGroupsFor(item).length > 0}
                   disabled={readOnly || sell.busy}
                   imageUrl={restaurant.profile.hide_images ? null : itemImageUrl(item.image, restaurant.connection.companyUrl)}
                   item={item}
@@ -308,6 +361,38 @@ export function RestaurantSellScreen() {
         title={[serviceType?.service_type_name, tableLabel ? `Table ${tableLabel}` : null].filter(Boolean).join(" · ")}
         visible={sheetOpen}
       />
+      {variantsFor ? (
+        <VariantPickerSheet
+          currency={currency}
+          error={variantsFor.error}
+          itemName={variantsFor.item.item_name}
+          loading={variantsFor.loading}
+          onClose={() => {
+            variantRequest.current += 1;
+            setVariantsFor(null);
+          }}
+          onPick={(variant) => {
+            setVariantsFor(null);
+            tapItem({ ...variant, has_variants: false, menu_category: variantsFor.item.menu_category });
+          }}
+          precision={precision}
+          variants={variantsFor.variants}
+        />
+      ) : null}
+      {customizing ? (
+        <ModifierPickerSheet
+          currency={currency}
+          groups={customizing.groups}
+          itemName={customizing.item.item_name}
+          onClose={() => setCustomizing(null)}
+          onConfirm={(choices) => {
+            const item = customizing.item;
+            setCustomizing(null);
+            void sell.addItem(item, choices);
+          }}
+          precision={precision}
+        />
+      ) : null}
       {sell.routingIssue ? (
         <KitchenRoutingSheet
           initial={draft.kitchen_routing}

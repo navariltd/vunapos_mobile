@@ -63,6 +63,8 @@ function RestaurantShell() {
               options={{ href: visible.includes(tab.name) ? undefined : null, title: tab.label }}
             />
           ))}
+          {/* Reached from More, not shown in the tab bar. */}
+          <Tabs.Screen name="close-shift" options={{ href: null, title: "Close shift" }} />
         </Tabs>
       </RestaurantChrome>
     </LaunchReadyRoute>

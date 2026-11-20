@@ -6,6 +6,7 @@ import {
 } from "@/features/restaurant/api/restaurantClient";
 import type {
   CartCheckDTO,
+  ClosingPreviewDTO,
   FloorPlanDTO,
   InvoiceDTO,
   KitchenAction,
@@ -236,3 +237,13 @@ export const renderReceipt = (c: C, params: { invoice_doctype: string; invoice_n
     invoice_name: params.invoice_name,
     print_format: params.print_format?.trim() || undefined,
   });
+
+// ---- closing the user's shift ----
+
+export const getClosingPreview = (c: C, pos_profile: string) =>
+  restaurantRead<ClosingPreviewDTO>(c, "vunapos.api.pos_closing.get_preview", { pos_profile });
+
+export const closeShift = (
+  c: C,
+  params: { pos_profile: string; closing_balances: { mode_of_payment: string; closing_amount: number }[] },
+) => restaurantWrite<{ name: string; status?: string }>(c, "vunapos.api.pos_closing.close_session", params);

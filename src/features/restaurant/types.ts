@@ -537,3 +537,25 @@ export type RestaurantCustomerDTO = {
   tax_id?: string | null;
   is_walkin?: boolean;
 };
+
+// ---- shift closing ----
+
+export type ClosingPaymentDTO = {
+  mode_of_payment: string;
+  opening_amount: number;
+  expected_amount: number;
+  closing_amount: number;
+  difference: number;
+};
+
+export type ClosingPreviewDTO = {
+  opening_entry: string;
+  pos_profile: string;
+  cashier: string;
+  period_start_date: string;
+  period_end_date: string;
+  invoice_count: number;
+  net_total: number;
+  grand_total: number;
+  payments: ClosingPaymentDTO[];
+};

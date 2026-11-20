@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { Button, Text } from "react-native-paper";
 
@@ -7,7 +8,7 @@ import { restaurantRoleLabel } from "@/features/restaurant/logic/restaurantRoles
 import { useAppearance } from "@/theme/AppearanceProvider";
 import { radii, spacing, typography } from "@/theme/tokens";
 
-/** Profile facts and account actions. Close Shift and shared pages join this list later. */
+/** Profile facts and account actions: close the shift and sign out. */
 export function RestaurantMoreScreen() {
   const { palette } = useAppearance();
   const { signOut } = useAppSession();
@@ -30,6 +31,11 @@ export function RestaurantMoreScreen() {
           </View>
         ))}
       </View>
+      {restaurant.needsShift && restaurant.shiftReady ? (
+        <Button icon="cash-register" mode="contained-tonal" onPress={() => router.navigate("/(restaurant)/close-shift")}>
+          Close shift
+        </Button>
+      ) : null}
       <Button icon="logout-variant" mode="outlined" onPress={() => void signOut()} textColor={palette.error}>
         Sign out
       </Button>

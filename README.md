@@ -11,31 +11,31 @@ The app is deliberately separate from the VunaPOS Frappe backend and the browser
 - TypeScript, Jest, and Expo's ESLint configuration
 - SQLite cache, SecureStore sessions, and Socket.IO realtime updates
 
-## Prerequisites
+## Clone and run on Android
 
-- Node.js 24 (the version used in CI)
-- npm 10 or later
-- A reachable VunaPOS/ERPNext site that exposes the supported VunaPOS POS APIs
-- Android Studio for local Android native builds, or Xcode on macOS for local iOS native builds
-
-## Install and run
+You need Node.js 24, npm, JDK 17, and Android Studio with the Android SDK, platform-tools, Android 36 platform, and Build Tools 36 installed. Set `ANDROID_HOME` to your SDK directory and make sure `adb` is on your `PATH`. Create and start an Android emulator in Android Studio, or connect a physical Android device with USB debugging enabled. Check that `adb devices` lists it as `device` before building. You also need a reachable VunaPOS-enabled ERPNext site and a user authorized for its POS Profile.
 
 ```bash
-git clone <repository-url> vunapos_mobile
+git clone https://github.com/navariltd/vunapos_mobile.git
 cd vunapos_mobile
 npm ci
-npm start
+adb devices
+npm run android
 ```
 
-Open the Expo development server with an emulator, simulator, or development build. You can also use:
+`npm run android` generates the ignored `android/` project if needed, builds a **debug** APK for the connected device/emulator, installs it, and starts Metro. The first native build can take several minutes. This app uses native modules, so Expo Go is not a substitute for that initial build. Afterward, leave Metro running and reload JavaScript changes without rebuilding; rebuild after changing native dependencies, Expo plugins, Android configuration, or other native code.
+
+If the app is already installed and you only need Metro, run `npx expo start --dev-client` from the repository root. Press `r` in the Metro terminal to reload. On an emulator, `npm run android` builds for its architecture (typically x86_64); do not install an ARM-only APK on an x86_64 emulator.
+
+On first launch, enter your company's VunaPOS site URL and sign in. For a Frappe bench running on the development machine at `http://localhost:8000`, forward the port before connecting from an emulator or USB device:
 
 ```bash
-npm run android
-npm run ios
-npm run web
+adb reverse tcp:8000 tcp:8000
 ```
 
-On first launch, enter the URL of the VunaPOS site and sign in with an authorized ERPNext user. Do not commit site credentials, signing keys, or environment files. Copy an explicitly provided `.env.example` to a local `.env` file when configuration is introduced.
+If Metro cannot be reached from a USB device, also run `adb reverse tcp:8081 tcp:8081`. `localhost` on a device otherwise refers to the device itself. HTTP is permitted in the Android **debug** build for local testing; production builds should use an HTTPS site. Do not put passwords, API tokens, release-upload credentials, or keystores in the repository or in Expo client environment variables.
+
+For iOS development, use macOS with Xcode and run `npm run ios` after `npm ci`. `npm run web` starts the browser target; it does not produce a native app.
 
 ## Verify a change
 
@@ -45,13 +45,13 @@ npm run lint
 npm test
 ```
 
-Optionally install the repository hooks with `pre-commit install`; they run linting and type-checking for changed JavaScript and TypeScript files. GitHub Actions runs the complete verification suite for pull requests and pushes to `develop`.
+Optionally run `pre-commit install` to enable the repository's lint and type-check hooks. CI runs these checks and Jest on pull requests and pushes to `develop`.
 
 ## Builds and releases
 
-The source tree is an Expo project. It is not a Python package and is not installed with Bench or `bench --site ... install-app`. Android releases use the `ke.co.navari.vunapos` application ID. Before distributing a production build, configure the definitive iOS bundle identifier, signing credentials, and EAS project/build profiles for the Vuna Technologies accounts.
+The source tree is an Expo project. It is not a Python package and is not installed with Bench or `bench --site ... install-app`. Android builds use the `ke.co.navari.vunapos` application ID. The debug build above is for development, not distribution. The signed Android release process is described below; no local release keystore is needed to run or test the app. iOS distribution requires its own Apple signing and bundle-identifier setup.
 
-The release workflow uses conventional commits and Semantic Release to create GitHub releases from protected `main`. The signed Android candidate workflow also runs only from `main` when the app version changes. Keep `.releaserc`, `.github/workflows/release.yml`, and `.github/workflows/android-release.yml` aligned if this release branch changes.
+The release workflow uses conventional commits and Semantic Release to create GitHub releases from protected `main`. The signed Android candidate workflow runs for every push to `main` and can also be started manually. Keep `.releaserc`, `.github/workflows/release.yml`, and `.github/workflows/android-release.yml` aligned if this release process changes.
 
 ### Android direct updates
 
@@ -126,7 +126,40 @@ node scripts/publish-android-release.mjs \
 
 The script streams SHA-256 calculation, performs the authenticated multipart upload, and accepts success only when Frappe returns matching metadata with `Draft` status. It prints no credentials. A `401`/`403`, `413`, conflict, malformed response, or non-Draft result fails the command. Rotate a compromised Frappe API key in Frappe, replace the two GitHub secrets, and remove the old key immediately. Back up the production keystore outside GitHub in access-controlled, recoverable storage; losing it prevents future in-place Android upgrades.
 
-For a local signed build, export the four `ANDROID_*` values, generate Android with `npx expo prebuild --platform android --no-install --non-interactive`, run `node scripts/prepare-android-release.mjs`, then invoke `./gradlew :app:assembleRelease` from `android/` with explicitly chosen unique `-PVUNAPOS_VERSION_NAME` and `-PVUNAPOS_VERSION_CODE` values. Use `aapt dump badging` and `apksigner verify --verbose --print-certs` before the local upload command above.
+### Build a signed Android APK locally
+
+Only do this when you have the **existing** production signing key and an approved release version. Do not generate a new key for an update: Android will reject an in-place upgrade signed with a different certificate. The build script requires these environment variables; provide them through your secure shell or CI secret store, not a project `.env` file:
+
+| Variable | Value |
+| --- | --- |
+| `VUNAPOS_RELEASE_STORE_FILE` | Absolute path to the existing `.jks` keystore |
+| `VUNAPOS_RELEASE_STORE_PASSWORD` | Keystore password |
+| `VUNAPOS_RELEASE_KEY_ALIAS` | Alias of the release key |
+| `VUNAPOS_RELEASE_KEY_PASSWORD` | Release-key password |
+
+With those variables set, run from the repository root:
+
+```bash
+npm ci
+npx expo prebuild --platform android --no-install --non-interactive
+node scripts/prepare-android-release.mjs
+cd android
+./gradlew :app:assembleRelease \
+  -PreactNativeArchitectures=armeabi-v7a,arm64-v8a \
+  -PVUNAPOS_VERSION_NAME=1.0.0+123 \
+  -PVUNAPOS_VERSION_CODE=123 \
+  --build-cache
+cd ..
+```
+
+Replace the example version name and code with approved values newer than the installed/published release. The APK is written to `android/app/build/outputs/apk/release/app-release.apk`. Verify its package, version, and signing certificate before distribution:
+
+```bash
+aapt dump badging android/app/build/outputs/apk/release/app-release.apk
+apksigner verify --verbose --print-certs android/app/build/outputs/apk/release/app-release.apk
+```
+
+The APK must identify `ke.co.navari.vunapos`, have the intended version code, and match the existing production certificate. The release script refuses to sign with a debug key. If you do not have the production key, use the debug instructions above or the protected GitHub Actions release workflow; do not distribute a locally generated replacement-key APK as an update. Prefer a separate clean checkout for local release builds: the preparation script modifies the generated `android/` project and restricts its native architectures to ARM, which is unsuitable for a later x86_64 emulator debug build.
 
 Before the first workflow run, a System Manager must create one enabled **Mobile Release Application** on `https://nl-vms.frappe.cloud` with Android Application ID `ke.co.navari.vunapos`, create the dedicated CI Frappe user, grant it the **Mobile Release Uploader** role, and add it to that application's Authorized Users table with **Can Upload**. The release manager intentionally does not pin an APK certificate fingerprint; CI and the publisher establish signing trust, and the installed VunaPOS client checks signing compatibility again before installation.
 
@@ -136,6 +169,8 @@ Before the first workflow run, a System Manager must create one enabled **Mobile
 src/          application routes, POS features, services, cache, and theme
 __tests__/    unit and integration tests
 assets/       application images
-test/          Jest setup
+modules/      local native modules
+scripts/      Android release preparation and publishing helpers
+test/         Jest setup
 app.json      Expo application metadata and permissions
 ```

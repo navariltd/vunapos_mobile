@@ -2,6 +2,7 @@ import { createContext, PropsWithChildren, useContext, useMemo } from "react";
 
 import { useAppSession } from "@/features/auth/AppSessionProvider";
 import type { RestaurantConnection } from "@/features/restaurant/api/restaurantClient";
+import { useServerClockSync } from "@/features/restaurant/hooks/useServerClockSync";
 import {
   isKitchenOnlyUser,
   needsRestaurantShift,
@@ -106,6 +107,11 @@ export function RestaurantProvider({ children }: PropsWithChildren) {
   const snapshot = useRootPosBootstrapSnapshot();
   const data = snapshot?.data;
   const reload = snapshot?.reload;
+  const clockConnection = useMemo(
+    () => (companyUrl && sessionId ? { companyUrl, sessionId } : null),
+    [companyUrl, sessionId],
+  );
+  useServerClockSync(clockConnection);
   const value = useMemo(() => {
     const bootstrap = readRestaurantBootstrap(data);
     if (!bootstrap || !companyUrl || !sessionId || !reload) return null;

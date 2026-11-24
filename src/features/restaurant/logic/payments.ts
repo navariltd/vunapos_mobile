@@ -1,3 +1,4 @@
+import { serverNow } from "@/features/restaurant/state/serverClock";
 import type { PaymentInput, RestaurantPaymentMode } from "@/features/restaurant/types";
 
 export type PaymentRow = { mode: string; amount: string; reference_no: string; reference_date: string };
@@ -79,7 +80,8 @@ export function summarizePayments(rows: PaymentRow[], modes: RestaurantPaymentMo
   };
 }
 
-export function todayIso(date = new Date()) {
+/** Today's date on the site's clock (see state/serverClock), as YYYY-MM-DD. */
+export function todayIso(date = serverNow()) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${date.getFullYear()}-${month}-${day}`;

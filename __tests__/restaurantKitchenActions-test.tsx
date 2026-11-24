@@ -40,6 +40,55 @@ describe("kitchen actions", () => {
     expect(refresh).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps busy state per ticket so other tickets' buttons are untouched", async () => {
+    const other = { name: "KOT-8", status: "Sent", modified: "m1", available_actions: ["Accept"], items: [] } as never;
+    let answer: (value: unknown) => void = () => undefined;
+    mockKitchenAction.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve))).mockResolvedValueOnce({});
+    const { result } = await renderHook(() => useKitchenActions(jest.fn()));
+
+    let first: Promise<{ ok: boolean }> | undefined;
+    await act(async () => {
+      first = result.current.perform(ticket, "Accept");
+    });
+    expect(result.current.busyControl("KOT-7")).toBe("Accept");
+    expect(result.current.busyControl("KOT-8")).toBeNull();
+
+    // Another ticket can still be worked while the first is in flight.
+    let second: { ok: boolean } | undefined;
+    await act(async () => {
+      second = await result.current.perform(other, "Accept");
+    });
+    expect(second?.ok).toBe(true);
+    expect(result.current.busyControl("KOT-7")).toBe("Accept");
+
+    await act(async () => {
+      answer({});
+      await first;
+    });
+    expect(result.current.busyControl("KOT-7")).toBeNull();
+    kitchenCommands.settle("KOT-8");
+  });
+
+  it("refuses a second action on the same ticket while one is running", async () => {
+    let answer: (value: unknown) => void = () => undefined;
+    mockKitchenAction.mockImplementationOnce(() => new Promise((resolve) => (answer = resolve)));
+    const { result } = await renderHook(() => useKitchenActions(jest.fn()));
+    let first: Promise<{ ok: boolean }> | undefined;
+    await act(async () => {
+      first = result.current.perform(ticket, "Accept");
+    });
+    let again: { ok: boolean } | undefined;
+    await act(async () => {
+      again = await result.current.perform(ticket, "Accept");
+    });
+    expect(again?.ok).toBe(false);
+    expect(mockKitchenAction).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      answer({});
+      await first;
+    });
+  });
+
   it("drops a refused action so the next one gets a new key", async () => {
     mockKitchenAction.mockRejectedValueOnce(new RestaurantApiError("Ticket changed", { code: "KITCHEN_STALE_STATE" }));
     const { result } = await renderHook(() => useKitchenActions(jest.fn()));

@@ -113,7 +113,7 @@ export function RestaurantKitchenScreen() {
       <FlashList
         contentContainerStyle={styles.list}
         data={board.data.tickets}
-        extraData={[now, actions.busyTicket]}
+        extraData={[now, actions.busy]}
         key={columns}
         keyExtractor={(ticket) => ticket.name}
         ListEmptyComponent={

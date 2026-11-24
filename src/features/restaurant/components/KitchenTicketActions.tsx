@@ -5,7 +5,11 @@ import { Button, HelperText, Text, TextInput } from "react-native-paper";
 import { useToast } from "@/components/feedback/ToastProvider";
 import { ManagerPinSheet } from "@/features/restaurant/components/ManagerPinSheet";
 import { Sheet } from "@/features/restaurant/components/Sheet";
-import type { useKitchenActions } from "@/features/restaurant/hooks/useKitchenActions";
+import {
+  CANCEL_CONTROL,
+  lineControl,
+  type useKitchenActions,
+} from "@/features/restaurant/hooks/useKitchenActions";
 import { lineActions, routineKitchenActions } from "@/features/restaurant/logic/kitchenCommands";
 import type { KitchenAction, KitchenTicketDTO } from "@/features/restaurant/types";
 import { useAppearance } from "@/theme/AppearanceProvider";
@@ -24,7 +28,9 @@ type Actions = ReturnType<typeof useKitchenActions>;
 export function KitchenRoutineButtons({ ticket, actions }: { ticket: KitchenTicketDTO; actions: Actions }) {
   const toast = useToast();
   const pending = actions.pending(ticket.name);
-  const busy = actions.busyTicket === ticket.name;
+  // Only this ticket's own request disables its buttons; other tickets stay as they are.
+  const running = actions.busyControl(ticket.name);
+  const busy = running !== null;
   const routine = routineKitchenActions(ticket).filter((action) => ROUTINE_LABELS[action]);
   if (!routine.length && !pending) return null;
 
@@ -44,9 +50,9 @@ export function KitchenRoutineButtons({ ticket, actions }: { ticket: KitchenTick
         routine.map((action, index) => (
           <Button
             compact
-            disabled={busy || Boolean(actions.busyTicket)}
+            disabled={busy}
             key={action}
-            loading={busy && index === 0}
+            loading={running === action}
             mode={index === 0 ? "contained" : "outlined"}
             onPress={() => void run(action)}
           >
@@ -74,17 +80,18 @@ export function KitchenTicketActions({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [pinOpen, setPinOpen] = useState(false);
-  const busy = Boolean(actions.busyTicket);
+  const running = actions.busyControl(ticket.name);
+  const busy = running !== null;
   const lines = actions.pending(ticket.name) ? [] : lineActions(ticket);
 
   async function runLine(lineId: string, action: KitchenAction, maximum: number) {
-    const key = `${lineId}:${action}`;
-    const qty = Number(amounts[key] ?? maximum);
+    const key = lineControl(lineId, action);
+    const qty = Number(amounts[key] || maximum);
     if (!Number.isFinite(qty) || qty <= 0 || qty > maximum) {
       toast.error(`Enter more than 0, up to ${maximum}.`);
       return;
     }
-    const outcome = await actions.perform(ticket, action, { [lineId]: qty });
+    const outcome = await actions.perform(ticket, action, { [lineId]: qty }, key);
     if (outcome.ok) {
       setAmounts((current) => ({ ...current, [key]: "" }));
       toast.success(outcome.message);
@@ -105,7 +112,7 @@ export function KitchenTicketActions({
     <View style={styles.section}>
       <KitchenRoutineButtons actions={actions} ticket={ticket} />
       {lines.map(({ line, action, maximum }) => {
-        const key = `${line.line_id}:${action}`;
+        const key = lineControl(line.line_id, action);
         return (
           <View key={key} style={[styles.lineAction, { borderColor: palette.border }]}>
             <Text numberOfLines={1} style={[styles.lineName, { color: palette.onSurface }]}>
@@ -122,7 +129,13 @@ export function KitchenTicketActions({
               style={styles.qtyInput}
               value={amounts[key] || String(maximum)}
             />
-            <Button compact disabled={busy} mode="outlined" onPress={() => void runLine(line.line_id, action, maximum)}>
+            <Button
+              compact
+              disabled={busy}
+              loading={running === key}
+              mode="outlined"
+              onPress={() => void runLine(line.line_id, action, maximum)}
+            >
               {action === "Ready" ? "Ready" : "Served"}
             </Button>
           </View>
@@ -142,7 +155,7 @@ export function KitchenTicketActions({
               <Button
                 buttonColor={palette.error}
                 disabled={!reason.trim() || busy}
-                loading={busy}
+                loading={running === CANCEL_CONTROL}
                 mode="contained"
                 onPress={() => (ticket.requires_cancel_pin ? setPinOpen(true) : void cancel())}
               >

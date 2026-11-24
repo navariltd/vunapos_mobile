@@ -6,6 +6,7 @@ import { LaunchReadyRoute } from "@/components/splash/LaunchReadiness";
 import { useAppSession } from "@/features/auth/AppSessionProvider";
 import { RestaurantChrome } from "@/features/restaurant/components/RestaurantChrome";
 import { RestaurantTabBar } from "@/features/restaurant/components/RestaurantTabBar";
+import { RestaurantThemeProvider } from "@/features/restaurant/components/RestaurantThemeProvider";
 import {
   RestaurantProvider,
   useOptionalRestaurant,
@@ -13,12 +14,15 @@ import {
 import { RESTAURANT_TABS, visibleRestaurantTabs } from "@/features/restaurant/navigation";
 import { RestaurantShiftGate } from "@/features/restaurant/screens/RestaurantShiftGate";
 import { useRootPosBootstrapSnapshot } from "@/sync/PosBootstrapSnapshot";
+import { useAppearance } from "@/theme/AppearanceProvider";
 
 export default function RestaurantLayout() {
   return (
-    <RestaurantProvider>
-      <RestaurantShell />
-    </RestaurantProvider>
+    <RestaurantThemeProvider>
+      <RestaurantProvider>
+        <RestaurantShell />
+      </RestaurantProvider>
+    </RestaurantThemeProvider>
   );
 }
 
@@ -26,6 +30,7 @@ function RestaurantShell() {
   const { authState } = useAppSession();
   const snapshot = useRootPosBootstrapSnapshot();
   const restaurant = useOptionalRestaurant();
+  const { palette } = useAppearance();
 
   if (authState !== "signedIn") return <Redirect href="/(auth)/sign-in" />;
   if (!restaurant) {
@@ -53,7 +58,7 @@ function RestaurantShell() {
       <RestaurantChrome>
         <Tabs
           initialRouteName={restaurant.kitchenOnly ? "kitchen" : "sell"}
-          screenOptions={{ headerShown: false }}
+          screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: palette.background } }}
           tabBar={(props) => <RestaurantTabBar {...props} visible={visible} />}
         >
           {RESTAURANT_TABS.map((tab) => (
